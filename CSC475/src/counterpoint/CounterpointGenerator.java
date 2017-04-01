@@ -17,17 +17,25 @@ import vmm.algs.DCTWPredictor;
  */
 public class CounterpointGenerator {
     public static void main(String[] args) throws FileNotFoundException{
+        
+        /*****************************************
+        * parses and initializes a test melody.
+        */
         String testMelody = "60:4 62:4 61:4 63:4 65:4 68:4 67:4 71:4 72:4";
         byte root = 0;
         String tonality = "minor";
+        //inputNotes: length 9 x 2 (44-36+1=9)
         byte[][] inputNotes = new byte[testMelody.length()-testMelody.replace(" ", "").length()+1][2];
         int noteNum = inputNotes.length;
         Scanner inputParser = new Scanner(testMelody);
         for(int i = 0; inputParser.hasNext(); i++){
             String currentNote = inputParser.next();
+            //NOTE is substring from start to indexOf(:), RHYTHM is index(:)+1 to end.
             inputNotes[i][0] = Byte.parseByte(currentNote.substring(0,currentNote.indexOf(':')));
             inputNotes[i][1] = Byte.parseByte(currentNote.substring(currentNote.indexOf(':')+1));
         }
+        
+        
         DCTWPredictor harmonyModel = BachAnalysis.harmonyModel(tonality);
         MarkovChain melodyModel = DataParser.melodyModel("bass", tonality);
         byte[] choices = Arrays.copyOf(melodyModel.getLabels(), melodyModel.dim()-1);
