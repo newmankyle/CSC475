@@ -204,15 +204,19 @@ public class BachAnalysis {
     }
     
     public static DCTWPredictor harmonyModel(String mode) throws FileNotFoundException{
-        File f = new File("data\\harmony.txt");
+        
         DCTWPredictor ret = new DCTWPredictor();
         ret.init(64, 16);
+        
+        File f = new File("data\\harmony.txt");
         Scanner sc = new Scanner(f,"ISO-8859-1");
         sc.useDelimiter(System.getProperty("line.separator"));
+        
         String train = "!";
         while(sc.hasNext()){
             String l = sc.next();
             String thisMode = l.substring(l.indexOf(" m")+1,l.indexOf("or "));
+            //notes is the line after the index of the first '!'
             String notes = l.substring(l.indexOf('!')+1);
             if(mode.toLowerCase().startsWith(thisMode))
                 train += notes;
