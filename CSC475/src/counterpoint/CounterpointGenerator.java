@@ -40,11 +40,12 @@ public class CounterpointGenerator {
         MarkovChain melodyModel = DataParser.melodyModel("bass", tonality);
         byte[] choices = Arrays.copyOf(melodyModel.getLabels(), melodyModel.dim()-1);
         System.out.println(Arrays.toString(choices));
-        int[] stupid = new int[noteNum];
-        Arrays.setAll(stupid, i -> (i+1)*(i<8?-1:1));
-        byte[] dumb = new byte[noteNum];
-        Arrays.fill(dumb, Byte.MAX_VALUE);
-        List<MarkovChain> constraint = melodyModel.induceConstraints(noteNum+1,stupid,dumb);
+        byte[][] stupid = new byte[noteNum][2];
+        for(int i = 0; i < noteNum; i++){
+            stupid[i][0] = (byte)((i+1)*(i<8?-1:1));
+            stupid[i][1] = Byte.MAX_VALUE;
+        }
+        List<MarkovChain> constraint = melodyModel.induceConstraints(noteNum+1,stupid);
         /*for(int i = 0; i < 10; i++){
             MarkovChain mc = constraint.get(i);
             if(i == 0)

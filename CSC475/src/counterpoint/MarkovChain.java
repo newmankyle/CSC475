@@ -72,6 +72,14 @@ public class MarkovChain {
         return Arrays.copyOf(transitions[ind], this.dim());
     }
     
+    public double getProb(byte from, byte to){
+        int indF = Arrays.binarySearch(labels, from);
+        int indT = Arrays.binarySearch(labels, to);
+        if(Math.min(indF, indT) < 0)
+            throw new InvalidParameterException("asked Markov chain for value that isn't present");
+        return transitions[indF][indT];
+    }
+    
     public byte getRandom(byte from){
         double[] probs = getProbs(from);
         for(int i = 1; i < probs.length; i++)
@@ -86,13 +94,15 @@ public class MarkovChain {
     /**
     *  Creates a finite-length series of Markov chains to satisfy the given unary constraints.
     * @param length: The length of the Markov chain.
-    * @param points: The indices of the constraints. Positive values indicate that the associated
-    * value must be present, while negative values indicate that the associated value must not be present
-    * at state -(points[i]+1).
-    * @param vals: The values of the constraints.
+    * @param unary: The unary constraints as an L x 2 matrix. unary[i][0] are positions, unary[i][1] are values.
+    * Positive positions indicate that the associated value must be present at the given position, 
+    * while negative values indicate that the associated value must not be present
+    * at position -(points[i]+1).
+    * @param binary: The binary constraints as an L x 3 matrix. Each matrix is a triple (i, j, k)
+    * stating that the chain cannot go from j to k between states i and i+1.
     * @return a list of Markov chains representing the constrained Markov process.
     */
-    public List<MarkovChain> induceConstraints(int length, int[] points, byte[] vals){
+    public List<MarkovChain> induceConstraints(byte length, byte[][] unary, byte[][] binary){
         int dim = labels.length;
         boolean[][] allowed = new boolean[length][dim];
         double[][][] modMatrices = new double[length][dim][dim];
@@ -102,12 +112,18 @@ public class MarkovChain {
                 modMatrices[i][j] = Arrays.copyOf(transitions[j], dim);
         }
         // processing the constraints
-        for(int i = 0; i < points.length; i++){
-            int ind = Arrays.binarySearch(labels, vals[i]);
-            int step = Math.max(points[i], -1-points[i]);
+        for(int i = 0; i < unary.length; i++){
+            int ind = Arrays.binarySearch(labels, unary[i][1]);
+            int step = Math.max(unary[i][0], -1-unary[i][0]);
             for(int j = 0; j < dim; j++)
-                if((points[i]>=0 && ind!=j) || (points[i]<0 && ind==j))
+                if((unary[i][0]>=0 && ind!=j) || (unary[i][0]<0 && ind==j))
                     allowed[step][j] = false;
+        }
+        for(int i = 0; i < binary.length; i++){
+            int step = binary[i][0];
+            int indF = Arrays.binarySearch(labels, binary[i][1]);
+            int indT = Arrays.binarySearch(labels, binary[i][2]);
+            modMatrices[step][indF][indT] = 0;
         }
         double[][] modRows = new double[length][dim];
         // matrix extraction, arc consistency
@@ -132,8 +148,6 @@ public class MarkovChain {
                     allowed[i-1][j] = false;
             }
         }
-        //for(int i = 0; i < length; i++)
-            //System.out.println(Arrays.toString(allowed[i]));
         double[][][] finalMatrices = new double[length][dim][dim];
         // renormalizing
         for(int i = length-1; i >= 0; i--){
@@ -150,6 +164,34 @@ public class MarkovChain {
         return Arrays.stream(finalMatrices).map(ds -> new MarkovChain(labels,ds)).collect(Collectors.toList());
     }
     
+    public List<MarkovChain> induceConstraints(int length, byte[][] unary, byte[][] binary){
+        if(length >= 128 || length <= 0)
+            throw new IllegalArgumentException("Cannot form constraint process with that length.");
+        else
+            return induceConstraints((byte)length, unary, binary);
+    }
+    
+    public List<MarkovChain> induceConstraints(int length, byte[][] unary){
+        if(length >= 128 || length <= 0)
+            throw new IllegalArgumentException("Cannot form constraint process with that length.");
+        else{
+            byte[][] binary = new byte[0][];
+            return induceConstraints((byte)length, unary, binary);
+        }
+    }
+    
+    public List<MarkovChain> induceConstraints(int length, int[] points, byte[] vals){
+        byte[][] unary = new byte[points.length][2];
+        for(int i = 0; i < points.length; i++){
+            if(points[i] < 0 || points[i] >= 128)
+                throw new IllegalArgumentException("Cannot form constraint process with that length.");
+            else
+                unary[i][0] = (byte)points[i];
+            unary[i][1] = vals[i];
+        }
+        return induceConstraints(length, unary);
+    }
+    
     public static byte[] getSeqFromConstraints(List<MarkovChain> mc){
         byte[] ret = new byte[mc.size()];
         if(mc.get(0).contains(Byte.MAX_VALUE))
@@ -161,24 +203,34 @@ public class MarkovChain {
         return ret;
     }
     
+    public static double getProbOfSeq(List<MarkovChain> mc, byte[] sequence){
+        double ret = 1.0;
+        for(int i = 0; i < mc.size(); i++)
+            ret *= mc.get(i).getProb(sequence[i], sequence[i+1]);
+        return ret;
+    }
+    
     public static void main(String[] args){
-        double[][] probs = {{0.0,0.5,1.0/6,1.0/3},
-                            {0.0,0.5,0.25,0.25},
-                            {0.0,0.5,0.0,0.5},
-                            {0.0,0.5,0.25,0.25}};
-        byte[] notes = {127,60,62,64};
+        double[][] probs = {{0.5,0.25,0.25,0.0},
+                            {0.5,0.0,0.5,0.0},
+                            {0.5,0.25,0.25,0.0},
+                            {0.5,1.0/6,1.0/3,0.0}};
+        byte[] notes = {60,62,64,127};
         MarkovChain test = new MarkovChain(notes,probs);
-        int[] last = {3};
-        byte[] dee = {62};
-        List<MarkovChain> testCon = test.induceConstraints(4, last, dee);
+        byte[][] constraint = {{3,62}};
+        byte[][] binary = {{1,62,64}};
+        List<MarkovChain> testCon = test.induceConstraints(4, constraint, binary);
         for(int i = 0; i < 4; i++){
             MarkovChain mc = testCon.get(i);
             if(i == 0)
-                System.out.println(Arrays.toString(mc.transitions[0]).substring(6));
+                System.out.println(Arrays.toString(mc.transitions[3]));
             else
-                for(int j = 1; j < 4; j++)
-                    System.out.println(Arrays.toString(mc.transitions[j]).substring(6));
+                for(int j = 0; j < 3; j++)
+                    System.out.println(Arrays.toString(mc.transitions[j]));
             System.out.println();
         }
+        byte[] test1 = {127,60,60,60,62};
+        byte[] test2 = {127,64,64,60,62};
+        System.out.println(getProbOfSeq(testCon,test1)/getProbOfSeq(testCon,test2));
     }
 }
