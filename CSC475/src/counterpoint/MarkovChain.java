@@ -73,10 +73,7 @@ public class MarkovChain {
     }
     
     public byte getRandom(byte from){
-        int ind = Arrays.binarySearch(labels, from);
-        if(ind < 0)
-            throw new InvalidParameterException("asked Markov chain for value that isn't present");
-        double[] probs = Arrays.copyOf(transitions[ind], this.dim());
+        double[] probs = getProbs(from);
         for(int i = 1; i < probs.length; i++)
             probs[i] += probs[i-1];
         int retInd = Arrays.binarySearch(probs, Math.random());
@@ -93,6 +90,7 @@ public class MarkovChain {
     * value must be present, while negative values indicate that the associated value must not be present
     * at state -(points[i]+1).
     * @param vals: The values of the constraints.
+    * @return a list of Markov chains representing the constrained Markov process.
     */
     public List<MarkovChain> induceConstraints(int length, int[] points, byte[] vals){
         int dim = labels.length;

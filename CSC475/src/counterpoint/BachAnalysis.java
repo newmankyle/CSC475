@@ -22,7 +22,7 @@ public class BachAnalysis {
         File f = new File("data\\"+fileToTest+".txt");
         for(int i = 2; i < 64; i *= 2){
             Scanner sc = new Scanner(f,"ISO-8859-1");
-            sc.useDelimiter(System.getProperty("line.separator"));
+            sc.useDelimiter("\n");
             double total = 0.0;
             int tested = 0;
             double most_pred = 999.0;
@@ -61,7 +61,7 @@ public class BachAnalysis {
     public static void pieceStats(String fileToTest) throws FileNotFoundException{
         File f = new File("data\\"+fileToTest+".txt");
         Scanner sc = new Scanner(f,"ISO-8859-1");
-        sc.useDelimiter(System.getProperty("line.separator"));
+        sc.useDelimiter("\n");
         double[] most_pred = {999.0,999.0};
         double[] least_pred = {0.0,0.0};
         String[] most_pred_names = {"",""};
@@ -126,7 +126,7 @@ public class BachAnalysis {
         
         System.out.println("Reading...");
         Scanner sc = new Scanner(f,"ISO-8859-1");
-        sc.useDelimiter(System.getProperty("line.separator"));
+        sc.useDelimiter("\n");
         HashMap<String, String> majorPieces = new HashMap<>();
         HashMap<String, String> minorPieces = new HashMap<>();
         String trainMajor = "!";
@@ -210,7 +210,7 @@ public class BachAnalysis {
         
         File f = new File("data\\harmony.txt");
         Scanner sc = new Scanner(f,"ISO-8859-1");
-        sc.useDelimiter(System.getProperty("line.separator"));
+        sc.useDelimiter("\n");
         
         String train = "!";
         while(sc.hasNext()){
