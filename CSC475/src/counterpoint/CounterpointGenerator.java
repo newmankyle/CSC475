@@ -105,6 +105,10 @@ public class CounterpointGenerator {
         Arrays.setAll(stupid, i -> (i+1)*(i<8?-1:1));
         byte[] dumb = new byte[noteNum];
         Arrays.fill(dumb, Byte.MAX_VALUE);
+        
+        System.out.println("The stupid is: " + Arrays.toString(stupid));
+        System.out.println("The dumb is: " + Arrays.toString(dumb));
+        
         List<MarkovChain> constraint = melodyModel.induceConstraints(noteNum+1,stupid,dumb);
 
         markovGenerator(10, noteNum, inputNotes, harmonyModel, melodyModel, constraint);
