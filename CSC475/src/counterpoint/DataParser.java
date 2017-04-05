@@ -279,7 +279,8 @@ public class DataParser {
     public static MarkovChain melodyModel(String voice, String mode) throws FileNotFoundException{
         File f = new File("data\\"+voice+".txt");
         Scanner sc = new Scanner(f,"ISO-8859-1");
-        sc.useDelimiter("\n");
+        //sc.useDelimiter("\n");
+        sc.useDelimiter(System.getProperty("line.separator"));
         String train = "!";
         while(sc.hasNext()){
             
@@ -299,7 +300,8 @@ public class DataParser {
     public static void main(String args[]) throws FileNotFoundException{
         File f = new File("data\\bass.txt");
         Scanner sc = new Scanner(f,"ISO-8859-1");
-        sc.useDelimiter("\n");
+        //sc.useDelimiter("\n");
+        sc.useDelimiter(System.getProperty("line.separator"));
         HashMap<String, String> majorPieces = new HashMap<>();
         HashMap<String, String> minorPieces = new HashMap<>();
         String trainMajor = "!";
