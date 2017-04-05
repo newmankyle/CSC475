@@ -137,11 +137,11 @@ public class CounterpointGenerator {
                 }
             }
             harmonySequence += "!";
-            System.out.println("noteSequence " + ": " + Arrays.toString(noteSequence));
+            //System.out.println("noteSequence " + ": " + Arrays.toString(noteSequence));
             for(int j = 1; j < noteNum+1; j++)
                 noteSequence[j] += offset;
 
-            //noteSequence[noteSequence.length] = 127; //adding the second ! causes all the other notes to deflate... I don't know why
+            noteSequence[noteSequence.length-1] = 127; //adding the second !
             String score = "" + harmonyModel.logEval(harmonySequence.substring(2), "! ")/(harmonySequence.length()-2);          
             printStats(noteSequence, harmonySequence, score);
             System.out.println();
