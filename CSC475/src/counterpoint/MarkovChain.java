@@ -183,7 +183,7 @@ public class MarkovChain {
     public List<MarkovChain> induceConstraints(int length, int[] points, byte[] vals){
         byte[][] unary = new byte[points.length][2];
         for(int i = 0; i < points.length; i++){
-            if(points[i] < 0 || points[i] >= 128)
+            if(points[i] < -128 || points[i] >= 128)
                 throw new IllegalArgumentException("Cannot form constraint process with that length.");
             else
                 unary[i][0] = (byte)points[i];
