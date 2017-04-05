@@ -230,8 +230,17 @@ public class DataParser {
     }
     
     public static void parseNoteStream(String stream, byte[] pitches, byte[] lengths){
+        /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+        * stream is the training data in String format. This function parses
+        * the string of data into notes and their durations using the colon
+        * as an index separator.
+        * 
+        * returns void. pitches[] and lengths[] are edited by address.
+        */
+        
         Scanner noteSc = new Scanner(stream).useDelimiter(" ");
         String currentNote;
+        
         for(int ind = 0; noteSc.hasNext(); ind++){
             currentNote = noteSc.next();
             if(currentNote.equals("!")){
@@ -273,6 +282,7 @@ public class DataParser {
         sc.useDelimiter("\n");
         String train = "!";
         while(sc.hasNext()){
+            
             String l = sc.next();
             String thisMode = l.substring(l.indexOf(" m")+1,l.indexOf("or "));
             String notes = l.substring(l.indexOf('!')+1);
@@ -282,6 +292,7 @@ public class DataParser {
         byte[] pitches = new byte[train.length()-train.replace(" ", "").length()+1];
         byte[] lengths = new byte[pitches.length];
         parseNoteStream(train, pitches, lengths);
+        
         return new MarkovChain(pitches);
     }
     
