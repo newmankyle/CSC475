@@ -34,9 +34,9 @@ public class CounterpointGenerator {
     static byte[] choices; // the choices given the register (bass/soprano)
     
     public static byte[] noteToMidi(byte[] noteSequence){
-        //byte offset = (byte)(root+(noteSequence[0]<1?48:36));
-            for(int j = 1; j < noteSequence.length-1; j++)
-                noteSequence[j] += (noteSequence[j]<1?48:36);
+        byte offset = (byte)(noteSequence[0]<1?48:36);
+        for(int j = 1; j < noteSequence.length-1; j++)
+            noteSequence[j] += offset;
         return noteSequence;
     }
     
