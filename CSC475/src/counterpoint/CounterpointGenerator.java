@@ -59,9 +59,13 @@ public class CounterpointGenerator {
             double avg = IntStream.range(0,inputNotes.length-1).mapToDouble(i -> (double)rhythmIn[i]).average().getAsDouble();
             byte unitIn = (byte)Math.pow(2,Math.round(Math.log(avg)/Math.log(2)));
             byte unitOut = (byte)(unitIn/(species==2?2:4));
-            for(int i = 0; i < inputNotes.length-1; i++)
-                for(int j = 0; j < rhythmIn[i]/unitOut; j++)
-                    rhythmSoFar.add(unitOut);
+            for(int i = 0; i < inputNotes.length-1; i++){
+                if(rhythmIn[i] < unitOut)
+                    rhythmSoFar.add(rhythmIn[i]);
+                else
+                    for(int j = 0; j < rhythmIn[i]/unitOut; j++)
+                        rhythmSoFar.add(unitOut);
+            }
             rhythmSoFar.add(rhythmIn[inputNotes.length-1]);
             byte[] ret = new byte[rhythmSoFar.size()];
             for(int i = 0; i < ret.length; i++)
@@ -138,7 +142,7 @@ public class CounterpointGenerator {
             
             //adds 48 or 36 to choices depending on the register (less than C).
             for(int j = 0; j < choices.length; j++)
-                actualChoices[j] += (choices[j]<1?48:36)+root;
+                actualChoices[j] += (choices[j]<1?48:36)+(below?0:12)+root;
             //System.out.println("actualChoices2 " + i + ": " + Arrays.toString(actualChoices));
             
             byte offset = root;
