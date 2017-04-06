@@ -144,7 +144,7 @@ public class MarkovChain {
                         modRows[i][j] += modRows[i+1][k]*modMatrices[i][j][k];
                 }
                 // remove states that have become dead ends
-                if(Arrays.stream(modMatrices[i][j]).sum() == 0.0)
+                if(i > 0 && Arrays.stream(modMatrices[i][j]).sum() == 0.0)
                     allowed[i-1][j] = false;
             }
         }
@@ -189,7 +189,7 @@ public class MarkovChain {
                 unary[i][0] = (byte)points[i];
             unary[i][1] = vals[i];
         }
-        return induceConstraints(length, unary);
+        return induceConstraints(length, unary, new byte[0][]);
     }
     
     public static byte[] getSeqFromConstraints(List<MarkovChain> mc){

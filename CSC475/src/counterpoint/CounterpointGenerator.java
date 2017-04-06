@@ -6,9 +6,11 @@
 package counterpoint;
 
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
+import java.util.stream.IntStream;
 import vmm.algs.DCTWPredictor;
 
 /**
@@ -42,6 +44,30 @@ public class CounterpointGenerator {
         if(nextInd < 0)
             nextInd = -1-nextInd;
         return nextInd;
+    }
+    
+    public static byte[] createRhythm(byte[][] input, int species){
+        byte[] rhythmIn = new byte[input.length];
+        for(int i = 0; i < input.length; i++)
+            rhythmIn[i] = input[i][1];
+        if(species == 1)        // first species = identical rhythm to input
+            return rhythmIn;
+        else if(species < 4){   // second species = divide by two, third species = divide by four
+            ArrayList<Byte> rhythmSoFar = new ArrayList<>();
+            double avg = IntStream.range(0,input.length-1).mapToDouble(i -> (double)rhythmIn[i]).average().getAsDouble();
+            byte unitIn = (byte)Math.pow(2,Math.round(Math.log(avg)/Math.log(2)));
+            byte unitOut = (byte)(unitIn/(species==2?2:4));
+            for(int i = 0; i < input.length-1; i++)
+                for(int j = 0; j < rhythmIn[i]/unitOut; j++)
+                    rhythmSoFar.add(unitOut);
+            rhythmSoFar.add(rhythmIn[input.length-1]);
+            byte[] ret = new byte[rhythmSoFar.size()];
+            for(int i = 0; i < ret.length; i++)
+                ret[i] = rhythmSoFar.get(i);
+            return ret;
+        }
+        else                    // treat any other input as first species
+            return rhythmIn;
     }
     
     public static double[] calculateNoteProbabilities(double[] probabilityArray, double[] harmProbs){
