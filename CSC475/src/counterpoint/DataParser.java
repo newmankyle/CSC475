@@ -162,7 +162,8 @@ public class DataParser {
             System.out.println("couldn't read file");
             System.exit(-1);
         }
-        sc.useDelimiter("\n");
+        //sc.useDelimiter("\n");
+        sc.useDelimiter(System.getProperty("line.separator"));
         while(sc.hasNext()){
             
             lineReader = new Scanner(sc.nextLine());
