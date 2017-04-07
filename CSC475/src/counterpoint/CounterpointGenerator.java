@@ -6,9 +6,11 @@
 package counterpoint;
 
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
+import java.util.stream.IntStream;
 import vmm.algs.DCTWPredictor;
 import org.jfugue.pattern.Pattern;
 import org.jfugue.player.Player;
@@ -25,16 +27,19 @@ public class CounterpointGenerator {
     static List<MarkovChain> constraint;
     
     static String tonality; // major/minor
+    static boolean below;
+    static int species;
     
     static byte[][] inputNotes; // user inputted notes
+    static int[] onsets; // onsets for the notes listed above
     
     static byte[] noteSequence; // out counterpoint
     static byte[] choices; // the choices given the register (bass/soprano)
     
     public static byte[] noteToMidi(byte[] noteSequence){
-        //byte offset = (byte)(root+(noteSequence[0]<1?48:36));
-            for(int j = 1; j < noteSequence.length-1; j++)
-                noteSequence[j] += (noteSequence[j]<1?48:36);
+        byte offset = (byte)(noteSequence[0]<1?48:36);
+        for(int j = 1; j < noteSequence.length-1; j++)
+            noteSequence[j] += offset;
         return noteSequence;
     }
     
@@ -46,13 +51,41 @@ public class CounterpointGenerator {
         return nextInd;
     }
     
+    public static byte[] createRhythm(int species){
+        byte[] rhythmIn = new byte[inputNotes.length];
+        for(int i = 0; i < inputNotes.length; i++)
+            rhythmIn[i] = inputNotes[i][1];
+        if(species == 1)        // first species = identical rhythm to input
+            return rhythmIn;
+        else if(species < 4){   // second species = divide by two, third species = divide by four
+            ArrayList<Byte> rhythmSoFar = new ArrayList<>();
+            double avg = IntStream.range(0,inputNotes.length-1).mapToDouble(i -> (double)rhythmIn[i]).average().getAsDouble();
+            byte unitIn = (byte)Math.pow(2,Math.round(Math.log(avg)/Math.log(2)));
+            byte unitOut = (byte)(unitIn/(species==2?2:4));
+            for(int i = 0; i < inputNotes.length-1; i++){
+                if(rhythmIn[i] < unitOut)
+                    rhythmSoFar.add(rhythmIn[i]);
+                else
+                    for(int j = 0; j < rhythmIn[i]/unitOut; j++)
+                        rhythmSoFar.add(unitOut);
+            }
+            rhythmSoFar.add(rhythmIn[inputNotes.length-1]);
+            byte[] ret = new byte[rhythmSoFar.size()];
+            for(int i = 0; i < ret.length; i++)
+                ret[i] = rhythmSoFar.get(i);
+            return ret;
+        }
+        else                    // treat any other input as first species
+            return rhythmIn;
+    }
+    
     public static double[] calculateNoteProbabilities(double[] probabilityArray, double[] harmProbs){
         double harmSum = Arrays.stream(harmProbs).sum();
         Arrays.setAll(probabilityArray, k -> probabilityArray[k]/harmSum*harmProbs[k]);
         // then normalizes the values.
         double toNormalize = Arrays.stream(probabilityArray).sum();
         Arrays.setAll(probabilityArray, k -> probabilityArray[k]/toNormalize);
-                
+        
         // adds the previous note prob to the current one.
         for(int k = 1; k < harmProbs.length; k++)
             probabilityArray[k] += probabilityArray[k-1];
@@ -88,39 +121,62 @@ public class CounterpointGenerator {
         
     }
     
-    public static void secondGenerator(int testNum, int noteNum){
-        //Generate 10 test patterns using the markov chain and vmm.
+    public static void secondGenerator(int testNum, int species){
+        byte[] rhythm = createRhythm(species);
+        byte[][] outputNotes = new byte[rhythm.length][2];
+        int noteNum = outputNotes.length;
+        
+        for(int i = 0; i < noteNum; i++)
+            outputNotes[i][1] = rhythm[i];
+        System.out.println(Arrays.toString(onsets));
+        System.out.println(Arrays.toString(rhythm));
+        
+        int[] stupid = new int[noteNum];
+        Arrays.setAll(stupid, i -> (i+1)*(i<(noteNum-1)?-1:1));
+        byte[] dumb = new byte[noteNum];
+        Arrays.fill(dumb, Byte.MAX_VALUE);
+        
+        constraint = melodyModel.induceConstraints(noteNum+1,stupid,dumb);
+        //Generate sample counterpoints using the markov chain and vmm.
         byte root = 0;
-        for(int i = 0; i < 10; i++){
+        for(int i = 0; i < testNum; i++){
             noteSequence = new byte[noteNum+2];
             byte[] actualChoices = Arrays.copyOf(choices, choices.length);
             //note: choices is all notes in the range of the input file (bass/soprano).
             
             //adds 48 or 36 to choices depending on the register (less than C).
             for(int j = 0; j < choices.length; j++)
-                actualChoices[j] += (choices[j]<1?48:36)+root;
+                actualChoices[j] += (choices[j]<1?48:36)+(below?0:12)+root;
             //System.out.println("actualChoices2 " + i + ": " + Arrays.toString(actualChoices));
             
             byte offset = root;
             noteSequence[0] = 127; // start sequence with "!"
             String harmonySequence = "! "; //more descriptive
+            int currentPos = 0;
             
             for(int j = 1; j < noteNum+1; j++){
                 
-                int x = j;                
-                double[] harmProbs = new double[choices.length];
+                int x = j;  // "final or effectively final" blah blah blah
                 // currentProbs: list of transitions from a given note in the Markov Chain.
-                double[] currentProbs = Arrays.copyOf(constraint.get(j-1).getProbs(noteSequence[j-1]), choices.length);                
+                double[] currentProbs = Arrays.copyOf(constraint.get(j-1).getProbs(noteSequence[j-1]), choices.length);
+                // corresponding harmonic choices
                 byte[] currentHarms = new byte[choices.length];
+                // finding current note in the input
+                int inputInd = Arrays.binarySearch(onsets, currentPos);
+                if(inputInd < 0)
+                    inputInd = -2-inputInd;
                 
                 // currentHarms: the harmonies between the current inputNote and all choices.
                 for(int k = 0; k < choices.length; k++)
-                    currentHarms[k] = (byte)(inputNotes[j-1][0]-actualChoices[k]);                
+                    currentHarms[k] = (byte)((inputNotes[inputInd][0]-actualChoices[k])*(below?1:-1));
+                // helper strings
                 String partialSequence = harmonySequence;    // "final or effectively final" blah blah blah
+                String tail = ":"+Byte.toString(rhythm[x-1])+(x==noteNum?" !":"");
                 
                 //harmProbs: parses currentHarms into ' harm:dur harm:dur ... ! ' form, then calls call VMM predict.
                 //  calculates the probabilities of each currenHarm given the harmony sequence so far (testHarmony).
-                Arrays.setAll(harmProbs, k -> harmonyModel.predict(Byte.toString(currentHarms[k])+":4"+(x==noteNum?" !":""), partialSequence));
+                double[] harmProbs = new double[choices.length];
+                Arrays.setAll(harmProbs, k -> harmonyModel.predict(Byte.toString(currentHarms[k])+tail, partialSequence));
                 
                 currentProbs = calculateNoteProbabilities(currentProbs, harmProbs);
                 
@@ -129,7 +185,9 @@ public class CounterpointGenerator {
                
                 //adds the note and harmony value to the sequences.
                 noteSequence[j] = choices[nextInd];
-                harmonySequence += Byte.toString(currentHarms[nextInd])+":4 ";
+                harmonySequence += Byte.toString(currentHarms[nextInd])+tail;
+                if(x<noteNum)
+                    harmonySequence += " ";
                 
                 // figures out the register from the first note in the sequence.
                 if(j == 1){
@@ -137,8 +195,9 @@ public class CounterpointGenerator {
                     for(int k = 0; k < choices.length; k++)
                         actualChoices[k] = (byte)(choices[k]+offset);
                 }
+                currentPos += rhythm[j-1];
             }
-            harmonySequence += "!";
+            //harmonySequence += "!";
             //System.out.println("noteSequence " + ": " + Arrays.toString(noteSequence));
             for(int j = 1; j < noteNum+1; j++)
                 noteSequence[j] += offset;
@@ -147,22 +206,48 @@ public class CounterpointGenerator {
             String score = "" + harmonyModel.logEval(harmonySequence.substring(2), "! ")/(harmonySequence.length()-2);          
             printStats(noteSequence, harmonySequence, score);
             if (i == 3){
-                playCounterpoint();
+                playCounterpoint(rhythm);
             }
             
             System.out.println();
         }
         
     }
-    
-    public static void playCounterpoint(){
+    public static void convertRhythmsToChar(char[] durations, byte[] rhythm){
+        
+        for(int i = 0; i < rhythm.length; i++){
+            if (rhythm[i] == 1){
+                durations[i] = 'w';
+            }else if(rhythm[i] == 2){
+                durations[i] = 'h';
+            }else if(rhythm[i] == 4){
+                durations[i] = 'q';
+            }else if(rhythm[i] == 8){
+                durations[i] = 'i';
+            }else if(rhythm[i] == 16){
+                durations[i] = 's';
+            }
+        }
+    }
+    public static void playCounterpoint(byte[] rhythm){
         String pattern1 = "";
         String pattern2 = "";
+        char[] counterDurations = new char[rhythm.length];
+        char[] cantusDurations = new char[inputNotes.length];
+        
+        byte[] inputRhythm = new byte[inputNotes.length];
         for(int i = 0; i < inputNotes.length; i++){
-            pattern1 += Note.getToneString(inputNotes[i][0]) + " ";
+            inputRhythm[i] = inputNotes[i][1];
+        }
+        
+        convertRhythmsToChar(counterDurations, rhythm);
+        convertRhythmsToChar(cantusDurations, inputRhythm);
+        
+        for(int i = 0; i < inputNotes.length; i++){
+            pattern1 += Note.getToneString(inputNotes[i][0]) + cantusDurations[i] + " ";
         }
         for(int i = 1; i < noteSequence.length-1; i++){
-            pattern2 += Note.getToneString(noteSequence[i]) + " ";
+            pattern2 += Note.getToneString(noteSequence[i]) + counterDurations[i-1] + " ";
         }
         System.out.println(pattern1 + "\n" + pattern2);
         
@@ -188,50 +273,8 @@ public class CounterpointGenerator {
         }
     }
     
-    // the original init for quick running.
-    public static int testInit() throws FileNotFoundException{
-        
-        /*****************************************
-        * parses and initializes a test melody.
-        */
-        String testMelody = "60:4 62:4 61:4 63:4 65:4 68:4 67:4 71:4 72:4";
-        //byte root = 0;
-        tonality = "minor";
-        //inputNotes: length 9 x 2 (44-36+1=9)
-        inputNotes = new byte[testMelody.length()-testMelody.replace(" ", "").length()+1][2];
-        
-        int noteNum = inputNotes.length;
-        
-        Scanner inputParser = new Scanner(testMelody);
-        for(int i = 0; inputParser.hasNext(); i++){
-            String currentNote = inputParser.next();
-            //NOTE is substring from start to indexOf(:), RHYTHM is index(:)+1 to end.
-            inputNotes[i][0] = Byte.parseByte(currentNote.substring(0,currentNote.indexOf(':')));
-            inputNotes[i][1] = Byte.parseByte(currentNote.substring(currentNote.indexOf(':')+1));
-        }
-                
-        harmonyModel = BachAnalysis.harmonyModel(tonality);
-        melodyModel = DataParser.melodyModel("bass", tonality);
-        
-        //choices: all note choices given the input type (bass/soprano)
-        choices = Arrays.copyOf(melodyModel.getLabels(), melodyModel.dim()-1);
-        //System.out.println("The choices are: " + Arrays.toString(choices));
-        
-        // Stupid are the values -1 to -8, and 9. Dumb is an array of max values 127.
-        int[] stupid = new int[noteNum];
-        Arrays.setAll(stupid, i -> (i+1)*(i<8?-1:1));
-        byte[] dumb = new byte[noteNum];
-        Arrays.fill(dumb, Byte.MAX_VALUE);
-        
-        //System.out.println("The stupid is: " + Arrays.toString(stupid));
-        //System.out.println("The dumb is: " + Arrays.toString(dumb));
-        
-        constraint = melodyModel.induceConstraints(noteNum+1,stupid,dumb);
-        
-        return noteNum;
-    }
     
-    public static int globalInit(String inputMelody, String scale, String register) throws FileNotFoundException{
+    public static void globalInit(String inputMelody, String scale, String register) throws FileNotFoundException{
         
         /*****************************************
         * parses and initializes a test melody.
@@ -240,42 +283,38 @@ public class CounterpointGenerator {
         //inputNotes: length 9 x 2 (44-36+1=9)
         inputNotes = new byte[inputMelody.length()-inputMelody.replace(" ", "").length()+1][2];
         
-        int noteNum = inputNotes.length;
-        
         Scanner inputParser = new Scanner(inputMelody);
         for(int i = 0; inputParser.hasNext(); i++){
             String currentNote = inputParser.next();
             inputNotes[i][0] = Byte.parseByte(currentNote.substring(0,currentNote.indexOf(':')));
             inputNotes[i][1] = Byte.parseByte(currentNote.substring(currentNote.indexOf(':')+1));
         }
+        onsets = new int[inputNotes.length];
+        onsets[0] = 0;
+        for(int i = 1; i < onsets.length; i++)
+            onsets[i] = onsets[i-1]+inputNotes[i-1][1];
                 
         harmonyModel = BachAnalysis.harmonyModel(tonality);
         melodyModel = DataParser.melodyModel(register, tonality);
+        below = register.equals("bass");
         
         //choices: all note choices given the input type (bass/soprano)
         choices = Arrays.copyOf(melodyModel.getLabels(), melodyModel.dim()-1);
-        
-        // Stupid are the values -1 to -8, and 9. Dumb is an array of max values 127.
-        int[] stupid = new int[noteNum];
-        Arrays.setAll(stupid, i -> (i+1)*(i<8?-1:1));
-        byte[] dumb = new byte[noteNum];
-        Arrays.fill(dumb, Byte.MAX_VALUE);
-        
-        constraint = melodyModel.induceConstraints(noteNum+1,stupid,dumb);
-        
-        return noteNum;
+    }
+    
+    // the original init for quick running.
+    public static void testInit() throws FileNotFoundException{
+        globalInit("60:4 64:4 62:4 65:4 64:4 67:4 62:4 59:4 60:8", "major", "bass");
     }
     
     public static void main(String[] args) throws FileNotFoundException{
-        
-        int noteNum;
+        String[] acceptable = {"1", "2", "3"};
         Scanner input = new Scanner(System.in);
         System.out.print("please input a melody or 'test': ");
         String inputMelody = input.nextLine();
         if(inputMelody.equals("test")){
-            noteNum = testInit();
+            testInit();
         }else{
-        
             System.out.print("is this major or minor? ");
             String scale = input.nextLine();
             while(!(scale.equals("major") || scale.equals("minor"))){
@@ -294,13 +333,18 @@ public class CounterpointGenerator {
             }else{
                 voice = "bass";
             }
-        
-            noteNum = globalInit(inputMelody, scale, voice);
+            globalInit(inputMelody, scale, voice);
+        }
+        System.out.print("what species (1-3)? ");
+        String speciesStr = input.nextLine();
+        while(Arrays.binarySearch(acceptable, speciesStr) < 0){
+            System.out.print("Invalid input. ");
+            speciesStr = input.nextLine();
         }
         //initialGenerator(10, noteNum);
         //System.out.println();
         
-        secondGenerator(10, noteNum);
+        secondGenerator(10, Integer.parseInt(speciesStr));
         System.out.println();
         
         
