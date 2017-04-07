@@ -10,7 +10,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import vmm.algs.DCTWPredictor;
-
+import org.jfugue.pattern.Pattern;
+import org.jfugue.player.Player;
+import org.jfugue.theory.Note;
 /**
  *
  * @author Rob
@@ -144,9 +146,46 @@ public class CounterpointGenerator {
             noteSequence[noteSequence.length-1] = 127; //adding the second !
             String score = "" + harmonyModel.logEval(harmonySequence.substring(2), "! ")/(harmonySequence.length()-2);          
             printStats(noteSequence, harmonySequence, score);
+            if (i == 3){
+                playCounterpoint();
+            }
+            
             System.out.println();
         }
         
+    }
+    
+    public static void playCounterpoint(){
+        String pattern1 = "";
+        String pattern2 = "";
+        for(int i = 0; i < inputNotes.length; i++){
+            pattern1 += Note.getToneString(inputNotes[i][0]) + " ";
+        }
+        for(int i = 1; i < noteSequence.length-1; i++){
+            pattern2 += Note.getToneString(noteSequence[i]) + " ";
+        }
+        System.out.println(pattern1 + "\n" + pattern2);
+        
+        Pattern p1 = new Pattern(pattern1).setVoice(0).setInstrument("Piano");
+        Pattern p2 = new Pattern(pattern2).setVoice(1).setInstrument("Flute");
+        Player player = new Player();
+        player.play(p1, p2);
+        
+        Scanner input = new Scanner(System.in);
+        System.out.print("Do you want to play it again? y/n ");
+        String answer = input.nextLine();
+        while(!answer.equals("n")){
+            if (answer.equals("y")){
+                player.play(p1, p2);
+                System.out.print("Do you want to play it again? ");
+                answer = input.nextLine();
+            }else if (answer.equals("n")){
+                break;
+            }else{
+                System.out.print("please enter y/n: ");
+                answer = input.nextLine();
+            }
+        }
     }
     
     // the original init for quick running.
