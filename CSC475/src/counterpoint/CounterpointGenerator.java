@@ -75,6 +75,23 @@ public class CounterpointGenerator {
                 ret[i] = rhythmSoFar.get(i);
             return ret;
         }
+        else if(species == 4){  // fourth species = syncopation
+            ArrayList<Byte> rhythmSoFar = new ArrayList<>();
+            double avg = IntStream.range(0,inputNotes.length-1).mapToDouble(i -> Math.log(rhythmIn[i])/Math.log(2)).average().getAsDouble();
+            int minusLast = IntStream.range(0,inputNotes.length-1).map(i -> (int)rhythmIn[i]).sum();
+            byte unitIn = (byte)Math.pow(2,Math.round(avg));
+            rhythmSoFar.add((byte)(unitIn/2));
+            for(int i = 0; i < (minusLast-unitIn/2)/unitIn; i++)
+                rhythmSoFar.add(unitIn);
+            int soFar = rhythmSoFar.stream().mapToInt(b -> (int)b).sum();
+            if(soFar < minusLast)
+                rhythmSoFar.add((byte)(minusLast-soFar));
+            rhythmSoFar.add(rhythmIn[inputNotes.length-1]);
+            byte[] ret = new byte[rhythmSoFar.size()];
+            for(int i = 0; i < ret.length; i++)
+                ret[i] = rhythmSoFar.get(i);
+            return ret;
+        }
         else                    // treat any other input as first species
             return rhythmIn;
     }
@@ -155,30 +172,53 @@ public class CounterpointGenerator {
             noteSequence[0] = 127; // start sequence with "!"
             String harmonySequence = "! "; //more descriptive
             int currentPos = 0;
+            int pieceEnd = onsets[onsets.length-1]+inputNotes[onsets.length-1][0];
             
             for(int j = 1; j < noteNum+1; j++){
                 
                 int x = j;  // "final or effectively final" blah blah blah
                 // currentProbs: list of transitions from a given note in the Markov Chain.
                 double[] currentProbs = Arrays.copyOf(constraint.get(j-1).getProbs(noteSequence[j-1]), choices.length);
-                // corresponding harmonic choices
-                byte[] currentHarms = new byte[choices.length];
-                // finding current note in the input
+                
+                // finding current note(s) in the input
                 int inputInd = Arrays.binarySearch(onsets, currentPos);
                 if(inputInd < 0)
                     inputInd = -2-inputInd;
+                int lastInd = inputInd+1;
+                int endPos = currentPos+rhythm[j-1];
+                while(onsets[lastInd-1]+inputNotes[lastInd-1][0] < pieceEnd && onsets[lastInd] < endPos)
+                    lastInd++;
+                byte[] currentMelody = new byte[lastInd-inputInd];
+                int currNotes = currentMelody.length;
+                int[] harmRhythm = Arrays.copyOfRange(onsets, inputInd, lastInd);
+                for(int k = 0; k < currNotes; k++){
+                    currentMelody[k] = inputNotes[inputInd+k][0];
+                    harmRhythm[k] = (k==currNotes-1?endPos:harmRhythm[k+1])-(k==0?currentPos:harmRhythm[k]);
+                }
+                
+                // corresponding harmonic choices
+                String[] currentHarms = new String[choices.length];
                 
                 // currentHarms: the harmonies between the current inputNote and all choices.
-                for(int k = 0; k < choices.length; k++)
-                    currentHarms[k] = (byte)((inputNotes[inputInd][0]-actualChoices[k])*(below?1:-1));
+                for(int k = 0; k < choices.length; k++){
+                    currentHarms[k] = "";
+                    for(int l = 0; l < currentMelody.length; l++){
+                        if(l > 0)
+                            currentHarms[k] += " ";
+                        byte currentHarm = (byte)((currentMelody[l]-actualChoices[k])*(below?1:-1));
+                        currentHarms[k] += Byte.toString(currentHarm)+":"+Integer.toString(harmRhythm[l]);
+                        //System.out.println(j+", "+currentMelody[l]+", "+actualChoices[k]+", "+currentHarms[k]);
+                    }
+                }
+                
                 // helper strings
                 String partialSequence = harmonySequence;    // "final or effectively final" blah blah blah
-                String tail = ":"+Byte.toString(rhythm[x-1])+(x==noteNum?" !":"");
+                String tail = x==noteNum?" !":"";
                 
                 //harmProbs: parses currentHarms into ' harm:dur harm:dur ... ! ' form, then calls call VMM predict.
                 //  calculates the probabilities of each currenHarm given the harmony sequence so far (testHarmony).
                 double[] harmProbs = new double[choices.length];
-                Arrays.setAll(harmProbs, k -> harmonyModel.predict(Byte.toString(currentHarms[k])+tail, partialSequence));
+                Arrays.setAll(harmProbs, k -> harmonyModel.predict(currentHarms[k]+tail, partialSequence));
                 
                 currentProbs = calculateNoteProbabilities(currentProbs, harmProbs);
                 
@@ -187,7 +227,7 @@ public class CounterpointGenerator {
                
                 //adds the note and harmony value to the sequences.
                 noteSequence[j] = choices[nextInd];
-                harmonySequence += Byte.toString(currentHarms[nextInd])+tail;
+                harmonySequence += currentHarms[nextInd]+tail;
                 if(x<noteNum)
                     harmonySequence += " ";
                 
@@ -259,8 +299,8 @@ public class CounterpointGenerator {
         }
         System.out.println(pattern1 + "\n" + pattern2);
         
-        Pattern p1 = new Pattern(pattern1).setVoice(0).setInstrument("Piano");
-        Pattern p2 = new Pattern(pattern2).setVoice(1).setInstrument("Flute");
+        Pattern p1 = new Pattern(pattern1).setVoice(0).setInstrument("Violin").setTempo(80);
+        Pattern p2 = new Pattern(pattern2).setVoice(1).setInstrument("Piano").setTempo(80);
         Player player = new Player();
         player.play(p1, p2);
         
@@ -316,7 +356,7 @@ public class CounterpointGenerator {
     }
     
     public static void main(String[] args) throws FileNotFoundException{
-        String[] acceptable = {"1", "2", "3"};
+        String[] acceptable = {"1", "2", "3", "4"};
         Scanner input = new Scanner(System.in);
         System.out.print("please input a melody or 'test': ");
         String inputMelody = input.nextLine();
@@ -343,7 +383,7 @@ public class CounterpointGenerator {
             }
             globalInit(inputMelody, scale, voice);
         }
-        System.out.print("what species (1-3)? ");
+        System.out.print("what species (1-4)? ");
         String speciesStr = input.nextLine();
         while(Arrays.binarySearch(acceptable, speciesStr) < 0){
             System.out.print("Invalid input. ");
