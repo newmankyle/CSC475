@@ -217,15 +217,15 @@ public class CounterpointGenerator {
         
         for(int i = 0; i < rhythm.length; i++){
             if (rhythm[i] == 1){
-                durations[i] = 'w';
+                durations[i] = 's';
             }else if(rhythm[i] == 2){
-                durations[i] = 'h';
+                durations[i] = 'i';
             }else if(rhythm[i] == 4){
                 durations[i] = 'q';
             }else if(rhythm[i] == 8){
-                durations[i] = 'i';
+                durations[i] = 'h';
             }else if(rhythm[i] == 16){
-                durations[i] = 's';
+                durations[i] = 'w';
             }
         }
     }
