@@ -59,8 +59,8 @@ public class CounterpointGenerator {
             return rhythmIn;
         else if(species < 4){   // second species = divide by two, third species = divide by four
             ArrayList<Byte> rhythmSoFar = new ArrayList<>();
-            double avg = IntStream.range(0,inputNotes.length-1).mapToDouble(i -> (double)rhythmIn[i]).average().getAsDouble();
-            byte unitIn = (byte)Math.pow(2,Math.round(Math.log(avg)/Math.log(2)));
+            double avg = IntStream.range(0,inputNotes.length-1).mapToDouble(i -> Math.log(rhythmIn[i])/Math.log(2)).average().getAsDouble();
+            byte unitIn = (byte)Math.pow(2,Math.round(avg));
             byte unitOut = (byte)(unitIn/(species==2?2:4));
             for(int i = 0; i < inputNotes.length-1; i++){
                 if(rhythmIn[i] < unitOut)
@@ -139,6 +139,8 @@ public class CounterpointGenerator {
         constraint = melodyModel.induceConstraints(noteNum+1,stupid,dumb);
         //Generate sample counterpoints using the markov chain and vmm.
         byte root = 0;
+        byte[] best = new byte[1];
+        double bestScore = 18.0;
         for(int i = 0; i < testNum; i++){
             noteSequence = new byte[noteNum+2];
             byte[] actualChoices = Arrays.copyOf(choices, choices.length);
@@ -203,37 +205,43 @@ public class CounterpointGenerator {
                 noteSequence[j] += offset;
 
             noteSequence[noteSequence.length-1] = 127; //adding the second !
-            String score = "" + harmonyModel.logEval(harmonySequence.substring(2), "! ")/(harmonySequence.length()-2);          
-            printStats(noteSequence, harmonySequence, score);
-            if (i == 3){
-                playCounterpoint(rhythm);
+            double score = harmonyModel.logEval(harmonySequence.substring(2), "! ")/(harmonySequence.length()-2);          
+            printStats(noteSequence, harmonySequence, Double.toString(score));
+            
+            if(score < bestScore){
+                bestScore = score;
+                best = noteSequence;
             }
             
             System.out.println();
         }
         
-    }
-    public static void convertRhythmsToChar(char[] durations, byte[] rhythm){
+        noteSequence = best;
+        playCounterpoint(rhythm);
         
+    }
+    public static void convertRhythmsToChar(String[] durations, byte[] rhythm){
         for(int i = 0; i < rhythm.length; i++){
-            if (rhythm[i] == 1){
-                durations[i] = 's';
-            }else if(rhythm[i] == 2){
-                durations[i] = 'i';
-            }else if(rhythm[i] == 4){
-                durations[i] = 'q';
-            }else if(rhythm[i] == 8){
-                durations[i] = 'h';
-            }else if(rhythm[i] == 16){
-                durations[i] = 'w';
+            durations[i] = "";
+            int temp = (int)rhythm[i];
+            while(temp > 0){
+                int exp = (int)Math.min(Math.floor(Math.log(temp)/Math.log(2)), 4);
+                switch(exp){
+                    case 0: durations[i] += "s"; break;
+                    case 1: durations[i] += "i"; break;
+                    case 2: durations[i] += "q"; break;
+                    case 3: durations[i] += "h"; break;
+                    default: durations[i] += "w";
+                }
+                temp -= Math.pow(2,exp);
             }
         }
     }
     public static void playCounterpoint(byte[] rhythm){
         String pattern1 = "";
         String pattern2 = "";
-        char[] counterDurations = new char[rhythm.length];
-        char[] cantusDurations = new char[inputNotes.length];
+        String[] counterDurations = new String[rhythm.length];
+        String[] cantusDurations = new String[inputNotes.length];
         
         byte[] inputRhythm = new byte[inputNotes.length];
         for(int i = 0; i < inputNotes.length; i++){
