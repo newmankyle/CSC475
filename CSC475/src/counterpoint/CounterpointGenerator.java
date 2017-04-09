@@ -32,9 +32,12 @@ public class CounterpointGenerator {
     
     static byte[][] inputNotes; // user inputted notes
     static int[] onsets; // onsets for the notes listed above
+    static int[] inputKey = {0,0};
     
     static byte[] noteSequence; // out counterpoint
     static byte[] choices; // the choices given the register (bass/soprano)
+    
+    static KeyDetector kd;
     
     public static byte[] noteToMidi(byte[] noteSequence){
         byte offset = (byte)(noteSequence[0]<1?48:36);
@@ -155,20 +158,29 @@ public class CounterpointGenerator {
         
         constraint = melodyModel.induceConstraints(noteNum+1,stupid,dumb);
         //Generate sample counterpoints using the markov chain and vmm.
-        byte root = 0;
+        int root = inputKey[0];
+        double avg = IntStream.range(0, inputNotes.length).mapToDouble(i -> (double)inputNotes[i][0]).average().getAsDouble();
+        int base = (int)Math.round((avg-17*(below?1:-1)-root)/12)*12+root;
+        
         byte[] best = new byte[1];
         double bestScore = 18.0;
         for(int i = 0; i < testNum; i++){
             noteSequence = new byte[noteNum+2];
+            // the starting notes each step in the Markov chain actually corresponds to
             byte[] actualChoices = Arrays.copyOf(choices, choices.length);
             //note: choices is all notes in the range of the input file (bass/soprano).
             
-            //adds 48 or 36 to choices depending on the register (less than C).
-            for(int j = 0; j < choices.length; j++)
-                actualChoices[j] += (choices[j]<1?48:36)+(below?0:12)+root;
-            //System.out.println("actualChoices2 " + i + ": " + Arrays.toString(actualChoices));
+            // determine what starting note each choice corresponds to
+            for(int j = 0; j < choices.length; j++){
+                actualChoices[j] += base;
+                while((inputNotes[0][0]-actualChoices[j])*(below?1:-1) > 31)
+                    actualChoices[j] += 12*(below?1:-1);
+                while((inputNotes[0][0]-actualChoices[j])*(below?1:-1) < 7)
+                    actualChoices[j] -= 12*(below?1:-1);
+            }
+            System.out.println("actualChoices2 " + i + ": " + Arrays.toString(actualChoices));
             
-            byte offset = root;
+            byte offset = (byte)root;
             noteSequence[0] = 127; // start sequence with "!"
             String harmonySequence = "! "; //more descriptive
             int currentPos = 0;
@@ -345,6 +357,28 @@ public class CounterpointGenerator {
         return ret;
     }
     
+    public static void globalInit(String inputMelody, String register) throws FileNotFoundException{
+        
+        /*****************************************
+        * parses and initializes a test melody.
+        */
+        inputNotes = parseNotesAsBytes(inputMelody);
+        inputKey = kd.detectKey(inputNotes);
+        tonality = inputKey[1]==0?"major":"minor";
+        System.out.println(Arrays.toString(inputKey));
+        onsets = new int[inputNotes.length];
+        onsets[0] = 0;
+        for(int i = 1; i < onsets.length; i++)
+            onsets[i] = onsets[i-1]+inputNotes[i-1][1];
+                
+        harmonyModel = BachAnalysis.harmonyModel(tonality);
+        melodyModel = DataParser.melodyModel(register, tonality);
+        below = register.equals("bass");
+        
+        //choices: all note choices given the input type (bass/soprano)
+        choices = Arrays.copyOf(melodyModel.getLabels(), melodyModel.dim()-1);
+    }
+    
     public static void globalInit(String inputMelody, String scale, String register) throws FileNotFoundException{
         
         /*****************************************
@@ -352,15 +386,8 @@ public class CounterpointGenerator {
         */
         tonality = scale;
         inputNotes = parseNotesAsBytes(inputMelody);
-        //inputNotes: length 9 x 2 (44-36+1=9)
-        /*inputNotes = new byte[inputMelody.length()-inputMelody.replace(" ", "").length()+1][2];
-        
-        Scanner inputParser = new Scanner(inputMelody);
-        for(int i = 0; inputParser.hasNext(); i++){
-            String currentNote = inputParser.next();
-            inputNotes[i][0] = Byte.parseByte(currentNote.substring(0,currentNote.indexOf(':')));
-            inputNotes[i][1] = Byte.parseByte(currentNote.substring(currentNote.indexOf(':')+1));
-        }*/
+        inputKey = kd.detectKey(inputNotes);
+        inputKey[1] = tonality=="major"?0:1;
         onsets = new int[inputNotes.length];
         onsets[0] = 0;
         for(int i = 1; i < onsets.length; i++)
@@ -376,10 +403,11 @@ public class CounterpointGenerator {
     
     // the original init for quick running.
     public static void testInit() throws FileNotFoundException{
-        globalInit("60:4 64:4 62:4 65:4 64:4 67:4 62:4 59:4 60:8", "major", "bass");
+        globalInit("68:8 70:8 73:8 75:8 77:8 75:8 70:8 73:8 78:8 77:8 72:8 75:8 73:8 80:8 78:8 68:8 67:8 68:8 77:8 75:8 73:16", "bass");
     }
     
     public static void main(String[] args) throws FileNotFoundException{
+        kd = new KeyDetector();
         String[] acceptable = {"1", "2", "3", "4"};
         Scanner input = new Scanner(System.in);
         System.out.print("please input a melody or 'test': ");

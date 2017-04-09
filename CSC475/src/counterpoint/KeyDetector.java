@@ -94,19 +94,29 @@ public class KeyDetector {
     
     public static void main(String[] args) throws FileNotFoundException{
         KeyDetector kd = new KeyDetector();
-        File f = new File("data\\bassMIDI.txt");
+        File f = new File("data\\sopranoMIDI.txt");
         Scanner sc = new Scanner(f,"ISO-8859-1");
         //sc.useDelimiter("\n");
         sc.useDelimiter(System.getProperty("line.separator"));
         String l,piece,key,notes;
+        int total = 0;
+        int min = 99;
+        int max = 0;
+        int pcs = 0;
         while(sc.hasNext()){
             l = sc.next();
             piece = l.substring(0,l.indexOf(' '));
             key = l.substring(l.indexOf(' ')+1,l.indexOf("or ")+2);
-            notes = l.substring(l.indexOf('!')+1);
-            byte[][] notesAsBytes = CounterpointGenerator.parseNotesAsBytes(notes);
+            notes = l.substring(l.indexOf('!')+2);
+            int firstNote = Integer.parseInt(notes.substring(0,notes.indexOf(':')));
+            total += firstNote;
+            min = Math.min(min, firstNote);
+            max = Math.max(max, firstNote);
+            pcs++;
+            /*byte[][] notesAsBytes = CounterpointGenerator.parseNotesAsBytes(notes);
             int[] predictedKey = kd.detectKey(notesAsBytes);
-            System.out.println(piece+", "+key+", "+NOTE_NAMES[predictedKey[0]]+" "+MODES[predictedKey[1]]);
+            System.out.println(piece+", "+key+", "+NOTE_NAMES[predictedKey[0]]+" "+MODES[predictedKey[1]]);*/
         }
+        System.out.println((double)total/pcs+" "+min+" "+max);
     }
 }
