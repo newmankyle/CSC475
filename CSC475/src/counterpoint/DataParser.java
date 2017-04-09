@@ -280,8 +280,8 @@ public class DataParser {
     public static MarkovChain melodyModel(String voice, String mode) throws FileNotFoundException{
         File f = new File("data\\"+voice+".txt");
         Scanner sc = new Scanner(f,"ISO-8859-1");
-        sc.useDelimiter("\n");
-        //sc.useDelimiter(System.getProperty("line.separator"));
+        //sc.useDelimiter("\n");
+        sc.useDelimiter(System.getProperty("line.separator"));
         String train = "!";
         while(sc.hasNext()){
             

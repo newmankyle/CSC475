@@ -261,11 +261,15 @@ public class CounterpointGenerator {
         
     }
     public static void convertRhythmsToChar(String[] durations, byte[] rhythm){
+        // this version accounts for lengths that aren't factors of 2 or are larger than whole notes
         for(int i = 0; i < rhythm.length; i++){
+            // conveniently, you can just string together note lengths
             durations[i] = "";
             int temp = (int)rhythm[i];
             while(temp > 0){
+                // find largest power of 2 less than what's left, using 2^4 for anything longer than that
                 int exp = (int)Math.min(Math.floor(Math.log(temp)/Math.log(2)), 4);
+                // add the corresponding letter
                 switch(exp){
                     case 0: durations[i] += "s"; break;
                     case 1: durations[i] += "i"; break;
@@ -321,6 +325,25 @@ public class CounterpointGenerator {
         }
     }
     
+    public static byte[][] parseNotesAsBytes(String notes){
+        String temp = notes;
+        // something remotely resembling a sanity check: make sure first character is a number
+        while(temp.charAt(0) != '-' && (temp.charAt(0) < '0' || temp.charAt(0) > '9'))
+            temp = temp.substring(temp.indexOf(' ')+1);
+        byte[][] ret = new byte[notes.length()-notes.replace(" ", "").length()+1][2];
+        
+        Scanner inputParser = new Scanner(notes);
+        for(int i = 0; inputParser.hasNext(); i++){
+            String currentNote = inputParser.next();
+            // then stop parsing the string once you hit something that doesn't start with a number or lacks a colon
+            if(!currentNote.contains(":") || temp.charAt(0) != '-' && (currentNote.charAt(0) < '0' || currentNote.charAt(0) > '9'))
+                break;
+            ret[i][0] = Byte.parseByte(currentNote.substring(0,currentNote.indexOf(':')));
+            ret[i][1] = Byte.parseByte(currentNote.substring(currentNote.indexOf(':')+1));
+        }
+        // there's obviously a lot more error-proofing that needs to be done but this is ok for now
+        return ret;
+    }
     
     public static void globalInit(String inputMelody, String scale, String register) throws FileNotFoundException{
         
@@ -328,15 +351,16 @@ public class CounterpointGenerator {
         * parses and initializes a test melody.
         */
         tonality = scale;
+        inputNotes = parseNotesAsBytes(inputMelody);
         //inputNotes: length 9 x 2 (44-36+1=9)
-        inputNotes = new byte[inputMelody.length()-inputMelody.replace(" ", "").length()+1][2];
+        /*inputNotes = new byte[inputMelody.length()-inputMelody.replace(" ", "").length()+1][2];
         
         Scanner inputParser = new Scanner(inputMelody);
         for(int i = 0; inputParser.hasNext(); i++){
             String currentNote = inputParser.next();
             inputNotes[i][0] = Byte.parseByte(currentNote.substring(0,currentNote.indexOf(':')));
             inputNotes[i][1] = Byte.parseByte(currentNote.substring(currentNote.indexOf(':')+1));
-        }
+        }*/
         onsets = new int[inputNotes.length];
         onsets[0] = 0;
         for(int i = 1; i < onsets.length; i++)

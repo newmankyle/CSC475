@@ -210,7 +210,8 @@ public class BachAnalysis {
         
         File f = new File("data\\harmony.txt");
         Scanner sc = new Scanner(f,"ISO-8859-1");
-        sc.useDelimiter("\n");
+        //sc.useDelimiter("\n");
+        sc.useDelimiter(System.getProperty("line.separator"));
         
         String train = "!";
         while(sc.hasNext()){
