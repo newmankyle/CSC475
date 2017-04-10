@@ -317,21 +317,32 @@ public class CounterpointGenerator {
         
         Pattern p1 = new Pattern(pattern1).setVoice(0).setInstrument("Violin").setTempo(80);
         Pattern p2 = new Pattern(pattern2).setVoice(1).setInstrument("Piano").setTempo(80);
-        Player player = new Player();
-        player.play(p1, p2);
+        Player player;
+        //player.play(p1, p2);
         
         Scanner input = new Scanner(System.in);
-        System.out.print("Do you want to play it again? y/n ");
+        System.out.print("Do you want to play the music? both/counter/melody/n ");
         String answer = input.nextLine();
         while(!answer.equals("n")){
-            if (answer.equals("y")){
+            if (answer.equals("both")){
+                player = new Player();
                 player.play(p1, p2);
-                System.out.print("Do you want to play it again? ");
+                System.out.print("Do you want to play it again? both/counter/melody/n: ");
                 answer = input.nextLine();
             }else if (answer.equals("n")){
                 break;
-            }else{
-                System.out.print("please enter y/n: ");
+            }else if (answer.equals("melody")){
+                player = new Player();
+                player.play(p1);
+                System.out.print("Do you want to play it again? both/counter/melody/n: ");
+                answer = input.nextLine();
+            }else if (answer.equals("counter")){
+                player = new Player();
+                player.play(p2);
+                System.out.print("Do you want to play it again? both/counter/melody/n: ");
+                answer = input.nextLine();
+            }else {
+                System.out.print("please enter both/counter/melody/n: ");
                 answer = input.nextLine();
             }
         }
