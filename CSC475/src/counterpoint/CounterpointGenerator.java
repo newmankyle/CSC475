@@ -98,6 +98,7 @@ public class CounterpointGenerator {
         }
         else{                   // fifth species: free counterpoint. treat anything > 5 as free as well
             MarkovChain rhythm = DataParser.rhythmModel(below?"bass":"soprano");
+            unit = DataParser.getUnit(rhythmIn);
             int total = onsets[onsets.length-1]+inputNotes[inputNotes.length-1][1];
             // if the total length isn't divisible by our unit, assume there's a pickup
             int pickup = unit-total%unit;
@@ -116,12 +117,12 @@ public class CounterpointGenerator {
             // we need the first onset to be exactly in time with the original
             // this deals with states where the first onset would be before the one in the original
             for(int i = 0; i < before; i++){
-                conditions[units+i][0] = -2;
+                conditions[units+i][0] = -1;
                 conditions[units+i][1] = (byte)(15-i);
             }
             // this deals with states which don't have an onset with the one in the original
             for(int i = 0; i < without; i++){
-                conditions[units+before+i][0] = -2;
+                conditions[units+before+i][0] = -1;
                 conditions[units+before+i][1] = (byte)i;
             }
             List<MarkovChain> constraints = rhythm.induceConstraints(units+1, conditions);
@@ -366,8 +367,8 @@ public class CounterpointGenerator {
         }
         System.out.println(pattern1 + "\n" + pattern2);
         
-        Pattern p1 = new Pattern(pattern1).setVoice(0).setInstrument("Violin").setTempo(80);
-        Pattern p2 = new Pattern(pattern2).setVoice(1).setInstrument("Piano").setTempo(80);
+        Pattern p1 = new Pattern(pattern1).setVoice(0).setInstrument("Violin").setTempo(160);
+        Pattern p2 = new Pattern(pattern2).setVoice(1).setInstrument("Piano").setTempo(160);
         Player player;
         //player.play(p1, p2);
         

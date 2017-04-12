@@ -313,7 +313,19 @@ public class DataParser {
         int minLen = 99;
         for(int i = 0; i < rhythm.length; i++)
             minLen = Math.min(minLen, (byte)rhythm[i]);
-        return (int)Math.pow(2,IntStream.range(0,rhythm.length-1).mapToDouble(i -> Math.log(rhythm[i])/Math.log(2)).average().getAsDouble());
+        return Math.min(4*minLen,(int)Math.pow(2,IntStream.range(0,rhythm.length-1).mapToDouble(i -> Math.log(rhythm[i])/Math.log(2)).average().getAsDouble()));
+    }
+    
+    public static int getRealUnit(byte[] rhythm){
+        int[] bounds = {Byte.MAX_VALUE, Byte.MIN_VALUE};
+        for(int i = 0; i < rhythm.length; i++){
+            bounds[0] = Math.min(bounds[0], rhythm[i]);
+            bounds[1] = Math.max(bounds[1], rhythm[i]);
+        }
+        if(bounds[1]/bounds[0] == 1 || bounds[0] > 4)
+            return 2*bounds[0];
+        else
+            return 4*bounds[0];
     }
     
     // returns a Markov chain representing how Bach typically breaks down "units" 
@@ -329,7 +341,7 @@ public class DataParser {
             String notes = l.substring(l.indexOf('!')+2,l.length()-2);
             byte[] rhythm = parseNoteStream(notes)[1];
             // unit needs to be something divisible by 4
-            int unit = Math.max(getUnit(rhythm),4);
+            int unit = Math.max(getRealUnit(rhythm),4);
             int[] onsets = onsets(rhythm);
             int total = onsets[onsets.length-1]+rhythm[rhythm.length-1];
             // if the total length isn't divisible by our unit, assume there's a pickup
@@ -355,40 +367,9 @@ public class DataParser {
     }
     
     public static void main(String args[]) throws FileNotFoundException{
-        File f = new File("data\\bass.txt");
-        Scanner sc = new Scanner(f,"ISO-8859-1");
-        sc.useDelimiter("\n");
-        //sc.useDelimiter(System.getProperty("line.separator"));
-        HashMap<String, String> majorPieces = new HashMap<>();
-        HashMap<String, String> minorPieces = new HashMap<>();
-        String trainMajor = "!";
-        String trainMinor = "!";
-        String l,piece,mode,notes;
-        while(sc.hasNext()){
-            l = sc.next();
-            piece = l.substring(0,l.indexOf(' '));
-            mode = l.substring(l.indexOf(" m")+1,l.indexOf("or "));
-            notes = l.substring(l.indexOf('!')+1);
-            if(mode.equals("maj")){
-                trainMajor += notes;
-                majorPieces.put(piece, "!"+notes);
-            }else{
-                trainMinor += notes;
-                minorPieces.put(piece, "!"+notes);
-            }
-        }
-        byte[] majorPitches = new byte[trainMajor.length()-trainMajor.replace(" ", "").length()+1];
-        byte[] majorLengths = new byte[majorPitches.length];
-        byte[] minorPitches = new byte[trainMinor.length()-trainMinor.replace(" ", "").length()+1];
-        byte[] minorLengths = new byte[minorPitches.length];
-        byte[] bounds = {0,0};
-        parseNoteStream(trainMajor, majorPitches, majorLengths, bounds);
-        parseNoteStream(trainMinor, minorPitches, minorLengths, bounds);
-        
-        System.out.println("max: " + bounds[1] + " min: " + bounds[0]);
-        int dims = bounds[1]-bounds[0]+2;
-        System.out.println(dims);
-        MarkovChain majorMarkov = new MarkovChain(majorPitches);
-        MarkovChain minorMarkov = new MarkovChain(minorPitches);
+        MarkovChain rhythm = rhythmModel("bass");
+        System.out.println(Arrays.toString(rhythm.labels));
+        for(int i = 0; i < rhythm.transitions.length; i++)
+            System.out.println(Arrays.toString(rhythm.transitions[i]));
     }
 }
