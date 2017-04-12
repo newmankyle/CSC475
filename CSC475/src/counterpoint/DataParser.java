@@ -310,7 +310,48 @@ public class DataParser {
     }
     
     public static int getUnit(byte[] rhythm){
+        int minLen = 99;
+        for(int i = 0; i < rhythm.length; i++)
+            minLen = Math.min(minLen, (byte)rhythm[i]);
         return (int)Math.pow(2,IntStream.range(0,rhythm.length-1).mapToDouble(i -> Math.log(rhythm[i])/Math.log(2)).average().getAsDouble());
+    }
+    
+    // returns a Markov chain representing how Bach typically breaks down "units" 
+    public static MarkovChain rhythmModel(String part) throws FileNotFoundException{
+        File f = new File("data\\"+part+".txt");
+        Scanner sc = new Scanner(f,"ISO-8859-1");
+        //sc.useDelimiter("\n");
+        sc.useDelimiter(System.getProperty("line.separator"));
+        ArrayList<Byte> data = new ArrayList<>();
+        data.add(Byte.MAX_VALUE);
+        while(sc.hasNext()){
+            String l = sc.next();
+            String notes = l.substring(l.indexOf('!')+2,l.length()-2);
+            byte[] rhythm = parseNoteStream(notes)[1];
+            // unit needs to be something divisible by 4
+            int unit = Math.max(getUnit(rhythm),4);
+            int[] onsets = onsets(rhythm);
+            int total = onsets[onsets.length-1]+rhythm[rhythm.length-1];
+            // if the total length isn't divisible by our unit, assume there's a pickup
+            int pickup = unit-total%unit;
+            // this isn't totally functional since many pieces leave out the length of the pickup at the end
+            pickup = pickup==unit?0:pickup;
+            for(int i = 0, current = -1*pickup; i < (total+pickup)/unit; i++){
+                // each byte (actually half bytes as the maximum is 15) in the sequence represents how that unit is broken into four
+                byte next = 0;
+                // ones represent note onsets
+                for(int j = 0; j < 4; current += unit/4, j++){
+                    if(Arrays.binarySearch(onsets, current) >= 0)
+                        next += Math.pow(2, 3-j);
+                }
+                data.add(next);
+            }
+            // max value once again represents beginning/end
+            data.add(Byte.MAX_VALUE);
+        }
+        byte[] train = new byte[data.size()];
+        IntStream.range(0, train.length).forEach(i -> train[i] = data.get(i));
+        return new MarkovChain(train);
     }
     
     public static void main(String args[]) throws FileNotFoundException{

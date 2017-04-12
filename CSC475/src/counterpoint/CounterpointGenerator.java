@@ -55,7 +55,7 @@ public class CounterpointGenerator {
         return nextInd;
     }
     
-    public static byte[] createRhythm(int species){
+    public static byte[] createRhythm(int species) throws FileNotFoundException{
         byte[] rhythmIn = new byte[inputNotes.length];
         for(int i = 0; i < inputNotes.length; i++)
             rhythmIn[i] = inputNotes[i][1];
@@ -96,17 +96,56 @@ public class CounterpointGenerator {
                 ret[i] = rhythmSoFar.get(i);
             return ret;
         }
-        /*else{                   // fifth species: free counterpoint. treat anything > 5 as free as well
-            int total = onsets[onsets.length-1];
-            int[] inputHits = new int[total];
-            Arrays.fill(inputHits, 0);
-            for(int i = 0; i < onsets.length-1; i++)
-                inputHits[onsets[i]] = 1;
-            int[] outputHits = new int[total];
-            Arrays.fill(outputHits, 0);
-        }*/
-        else
-            return rhythmIn;
+        else{                   // fifth species: free counterpoint. treat anything > 5 as free as well
+            MarkovChain rhythm = DataParser.rhythmModel(below?"bass":"soprano");
+            int total = onsets[onsets.length-1]+inputNotes[inputNotes.length-1][1];
+            // if the total length isn't divisible by our unit, assume there's a pickup
+            int pickup = unit-total%unit;
+            // needed for later
+            int before = 16-(int)Math.pow(2,pickup*4/unit);
+            int without = (int)Math.pow(2,pickup*4/unit-1);
+            // this isn't totally functional since many pieces leave out the length of the pickup at the end
+            pickup = pickup==unit?0:pickup;
+            byte[][] conditions = new byte[(total+pickup)/unit+before+without][2];
+            int units = conditions.length-before-without;
+            // need to prevent the ending symbol from being chosen until... the end
+            for(int i = 0; i < units; i++){
+                conditions[i][0] = (byte)((i+1)*(i<(units-1)?-1:1));
+                conditions[i][1] = Byte.MAX_VALUE;
+            }
+            // we need the first onset to be exactly in time with the original
+            // this deals with states where the first onset would be before the one in the original
+            for(int i = 0; i < before; i++){
+                conditions[units+i][0] = -2;
+                conditions[units+i][1] = (byte)(15-i);
+            }
+            // this deals with states which don't have an onset with the one in the original
+            for(int i = 0; i < without; i++){
+                conditions[units+before+i][0] = -2;
+                conditions[units+before+i][1] = (byte)i;
+            }
+            List<MarkovChain> constraints = rhythm.induceConstraints(units+1, conditions);
+            // so now we make a compressed rhythmic pattern
+            byte[] pattern = MarkovChain.getSeqFromConstraints(constraints);
+            // and we have to uncompress it
+            ArrayList<Integer> finalOnsets = new ArrayList<>();
+            for(int i = 0, current = -1*pickup; i < pattern.length-1; i++){
+                for(int j = 0; j < 4; current += unit/4, j++){
+                    byte pow = (byte)Math.pow(2,3-j);
+                    if((pattern[i]&pow) > 0){
+                        finalOnsets.add(current);
+                    }
+                }
+            }
+            // force unison with the original at the end
+            finalOnsets.removeIf(i -> i >= onsets[onsets.length-1]);
+            finalOnsets.add(onsets[onsets.length-1]);
+            byte[] ret = new byte[finalOnsets.size()];
+            for(int i = 0; i < ret.length-1; i++)
+                ret[i] = (byte)(finalOnsets.get(i+1)-finalOnsets.get(i));
+            ret[ret.length-1] = inputNotes[inputNotes.length-1][1];
+            return ret;
+        }
     }
     
     public static double[] calculateNoteProbabilities(double[] probabilityArray, double[] harmProbs){
@@ -151,7 +190,7 @@ public class CounterpointGenerator {
         
     }
     
-    public static void secondGenerator(int testNum, int species){
+    public static void secondGenerator(int testNum, int species) throws FileNotFoundException{
         byte[] rhythm = createRhythm(species);
         byte[][] outputNotes = new byte[rhythm.length][2];
         int noteNum = outputNotes.length;
@@ -431,7 +470,7 @@ public class CounterpointGenerator {
     
     public static void main(String[] args) throws FileNotFoundException{
         kd = new KeyDetector();
-        String[] acceptable = {"1", "2", "3", "4"};
+        String[] acceptable = {"1", "2", "3", "4", "5"};
         Scanner input = new Scanner(System.in);
         System.out.print("please input a melody or 'test': ");
         String inputMelody = input.nextLine();
