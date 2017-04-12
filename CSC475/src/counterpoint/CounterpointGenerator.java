@@ -33,6 +33,7 @@ public class CounterpointGenerator {
     static byte[][] inputNotes; // user inputted notes
     static int[] onsets; // onsets for the notes listed above
     static int[] inputKey = {0,0};
+    static byte unit;
     
     static byte[] noteSequence; // out counterpoint
     static byte[] choices; // the choices given the register (bass/soprano)
@@ -56,21 +57,25 @@ public class CounterpointGenerator {
     
     public static byte[] createRhythm(int species){
         byte[] rhythmIn = new byte[inputNotes.length];
+        double avg = IntStream.range(0,inputNotes.length-1).mapToDouble(i -> Math.log(rhythmIn[i])/Math.log(2)).average().getAsDouble();
+        // rhythmic unit
+        unit = (byte)Math.pow(2,Math.round(avg));
         for(int i = 0; i < inputNotes.length; i++)
             rhythmIn[i] = inputNotes[i][1];
         if(species == 1)        // first species = identical rhythm to input
             return rhythmIn;
         else if(species < 4){   // second species = divide by two, third species = divide by four
             ArrayList<Byte> rhythmSoFar = new ArrayList<>();
-            double avg = IntStream.range(0,inputNotes.length-1).mapToDouble(i -> Math.log(rhythmIn[i])/Math.log(2)).average().getAsDouble();
-            byte unitIn = (byte)Math.pow(2,Math.round(avg));
-            byte unitOut = (byte)(unitIn/(species==2?2:4));
+            byte unitOut = (byte)(unit/(species==2?2:4));
             for(int i = 0; i < inputNotes.length-1; i++){
                 if(rhythmIn[i] < unitOut)
                     rhythmSoFar.add(rhythmIn[i]);
-                else
+                else{
                     for(int j = 0; j < rhythmIn[i]/unitOut; j++)
                         rhythmSoFar.add(unitOut);
+                    if(rhythmIn[i]%unitOut > 0)
+                        rhythmSoFar.add((byte)(rhythmIn[i]%unitOut));
+                }
             }
             rhythmSoFar.add(rhythmIn[inputNotes.length-1]);
             byte[] ret = new byte[rhythmSoFar.size()];
@@ -80,12 +85,10 @@ public class CounterpointGenerator {
         }
         else if(species == 4){  // fourth species = syncopation
             ArrayList<Byte> rhythmSoFar = new ArrayList<>();
-            double avg = IntStream.range(0,inputNotes.length-1).mapToDouble(i -> Math.log(rhythmIn[i])/Math.log(2)).average().getAsDouble();
             int minusLast = IntStream.range(0,inputNotes.length-1).map(i -> (int)rhythmIn[i]).sum();
-            byte unitIn = (byte)Math.pow(2,Math.round(avg));
-            rhythmSoFar.add((byte)(unitIn/2));
-            for(int i = 0; i < (minusLast-unitIn/2)/unitIn; i++)
-                rhythmSoFar.add(unitIn);
+            rhythmSoFar.add((byte)(unit/2));
+            for(int i = 0; i < (minusLast-unit/2)/unit; i++)
+                rhythmSoFar.add(unit);
             int soFar = rhythmSoFar.stream().mapToInt(b -> (int)b).sum();
             if(soFar < minusLast)
                 rhythmSoFar.add((byte)(minusLast-soFar));
@@ -151,12 +154,14 @@ public class CounterpointGenerator {
         System.out.println(Arrays.toString(onsets));
         System.out.println(Arrays.toString(rhythm));
         
-        int[] stupid = new int[noteNum];
-        Arrays.setAll(stupid, i -> (i+1)*(i<(noteNum-1)?-1:1));
-        byte[] dumb = new byte[noteNum];
-        Arrays.fill(dumb, Byte.MAX_VALUE);
+        // the "stupid" constraints- don't use the ending state until the end of the piece
+        byte[][] stupid = new byte[noteNum][2];
+        for(int i = 0; i < noteNum; i++){
+            stupid[i][0] = (byte)((i+1)*(i<(noteNum-1)?-1:1));
+            stupid[i][1] = Byte.MAX_VALUE;
+        }
         
-        constraint = melodyModel.induceConstraints(noteNum+1,stupid,dumb);
+        constraint = melodyModel.induceConstraints(noteNum+1,stupid);
         //Generate sample counterpoints using the markov chain and vmm.
         int root = inputKey[0];
         double avg = IntStream.range(0, inputNotes.length).mapToDouble(i -> (double)inputNotes[i][0]).average().getAsDouble();
