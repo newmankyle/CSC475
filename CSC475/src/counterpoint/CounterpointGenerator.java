@@ -33,7 +33,7 @@ public class CounterpointGenerator {
     static byte[][] inputNotes; // user inputted notes
     static int[] onsets; // onsets for the notes listed above
     static int[] inputKey = {0,0};
-    static byte unit;
+    static int unit;
     
     static byte[] noteSequence; // out counterpoint
     static byte[] choices; // the choices given the register (bass/soprano)
@@ -57,12 +57,10 @@ public class CounterpointGenerator {
     
     public static byte[] createRhythm(int species){
         byte[] rhythmIn = new byte[inputNotes.length];
-        double avg = IntStream.range(0,inputNotes.length-1).mapToDouble(i -> Math.log(rhythmIn[i])/Math.log(2)).average().getAsDouble();
-        // rhythmic unit
-        unit = (byte)Math.pow(2,Math.round(avg));
         for(int i = 0; i < inputNotes.length; i++)
             rhythmIn[i] = inputNotes[i][1];
-        if(species == 1)        // first species = identical rhythm to input
+        unit = DataParser.getUnit(rhythmIn);
+        if(species <= 1)        // first species = identical rhythm to input. treat anything less than 1 as first as well
             return rhythmIn;
         else if(species < 4){   // second species = divide by two, third species = divide by four
             ArrayList<Byte> rhythmSoFar = new ArrayList<>();
@@ -88,7 +86,7 @@ public class CounterpointGenerator {
             int minusLast = IntStream.range(0,inputNotes.length-1).map(i -> (int)rhythmIn[i]).sum();
             rhythmSoFar.add((byte)(unit/2));
             for(int i = 0; i < (minusLast-unit/2)/unit; i++)
-                rhythmSoFar.add(unit);
+                rhythmSoFar.add((byte)unit);
             int soFar = rhythmSoFar.stream().mapToInt(b -> (int)b).sum();
             if(soFar < minusLast)
                 rhythmSoFar.add((byte)(minusLast-soFar));
@@ -98,7 +96,16 @@ public class CounterpointGenerator {
                 ret[i] = rhythmSoFar.get(i);
             return ret;
         }
-        else                    // treat any other input as first species
+        /*else{                   // fifth species: free counterpoint. treat anything > 5 as free as well
+            int total = onsets[onsets.length-1];
+            int[] inputHits = new int[total];
+            Arrays.fill(inputHits, 0);
+            for(int i = 0; i < onsets.length-1; i++)
+                inputHits[onsets[i]] = 1;
+            int[] outputHits = new int[total];
+            Arrays.fill(outputHits, 0);
+        }*/
+        else
             return rhythmIn;
     }
     

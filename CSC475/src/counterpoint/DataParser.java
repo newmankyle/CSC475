@@ -7,6 +7,7 @@ package counterpoint;
 
 import java.util.*;
 import java.io.*;
+import java.util.stream.IntStream;
 /**
  *
  * @author newma
@@ -230,7 +231,7 @@ public class DataParser {
         matrix = transitionBuilder(dims, (-1*minCount), majorNotes);
     }
     
-    public static void parseNoteStream(String stream, byte[] pitches, byte[] lengths){
+    public static byte[][] parseNoteStream(String stream){
         /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
         * stream is the training data in String format. This function parses
         * the string of data into notes and their durations using the colon
@@ -239,6 +240,8 @@ public class DataParser {
         * returns void. pitches[] and lengths[] are edited by address.
         */
         
+        byte[] pitches = new byte[stream.length()-stream.replace(" ", "").length()+1];
+        byte[] lengths = new byte[pitches.length];
         Scanner noteSc = new Scanner(stream).useDelimiter(" ");
         String currentNote;
         
@@ -254,6 +257,8 @@ public class DataParser {
                 lengths[ind] = Byte.parseByte(currentNote.substring(colon+1));
             }
         }
+        byte[][] ret = {pitches, lengths};
+        return ret;
     }
     
     public static void parseNoteStream(String stream, byte[] pitches, byte[] lengths, byte[] bounds){
@@ -291,11 +296,21 @@ public class DataParser {
             if(mode.toLowerCase().startsWith(thisMode))
                 train += notes;
         }
-        byte[] pitches = new byte[train.length()-train.replace(" ", "").length()+1];
-        byte[] lengths = new byte[pitches.length];
-        parseNoteStream(train, pitches, lengths);
+        byte[] pitches = parseNoteStream(train)[0];
         
         return new MarkovChain(pitches);
+    }
+    
+    public static int[] onsets(byte[] lengths){
+        int[] ret = new int[lengths.length];
+        ret[0] = 0;
+        for(int i = 1; i < ret.length; i++)
+            ret[i] = ret[i-1]+lengths[i];
+        return ret;
+    }
+    
+    public static int getUnit(byte[] rhythm){
+        return (int)Math.pow(2,IntStream.range(0,rhythm.length-1).mapToDouble(i -> Math.log(rhythm[i])/Math.log(2)).average().getAsDouble());
     }
     
     public static void main(String args[]) throws FileNotFoundException{
