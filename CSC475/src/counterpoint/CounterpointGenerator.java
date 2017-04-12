@@ -476,34 +476,29 @@ public class CounterpointGenerator {
         choices = Arrays.copyOf(melodyModel.getLabels(), melodyModel.dim()-1);
     }
     
-    // the original init for quick running.
-    public static void testInit() throws FileNotFoundException{
-        globalInit("68:8 70:8 73:8 75:8 77:8 75:8 70:8 73:8 78:8 77:8 72:8 75:8 73:8 80:8 78:8 68:8 67:8 68:8 77:8 75:8 73:16", "bass");
-    }
-    
     public static void main(String[] args) throws FileNotFoundException{
         kd = new KeyDetector();
         String[] acceptable = {"1", "2", "3", "4", "5"};
         Scanner input = new Scanner(System.in);
         System.out.print("please input a melody or 'test': ");
         String inputMelody = input.nextLine();
-        if(inputMelody.equals("test")){
-            testInit();
-        }else{
-            System.out.print("should the counterpoint be above or below your melody? ");
-            String voice = input.nextLine();       
-            while(!(voice.equals("above") || voice.equals("below"))){
-                System.out.print("sorry, I need above/below: ");
-                voice = input.nextLine();
-            }
-            if (voice.equals("above")){
-                voice = "soprano";
-            }else{
-                voice = "bass";
-            }
-            globalInit(inputMelody, voice);
+        System.out.print("should the counterpoint be above or below your melody? ");
+        String voice = input.nextLine();       
+        while(!(voice.equals("above") || voice.equals("below"))){
+            System.out.print("sorry, I need above/below: ");
+            voice = input.nextLine();
         }
-        System.out.print("what species (1-4)? ");
+        if (voice.equals("above")){
+            voice = "soprano";
+            if(inputMelody.equals("test"))
+                inputMelody = "56:8 58:8 61:8 63:8 65:8 63:8 58:8 61:8 66:8 65:8 60:8 63:8 61:8 68:8 66:8 56:8 55:8 56:8 65:8 63:8 61:16";
+        }else{
+            voice = "bass";
+            if(inputMelody.equals("test"))
+                inputMelody = "68:8 70:8 73:8 75:8 77:8 75:8 70:8 73:8 78:8 77:8 72:8 75:8 73:8 80:8 78:8 68:8 67:8 68:8 77:8 75:8 73:16";
+        }
+        globalInit(inputMelody, voice);
+        System.out.print("what species (1-5)? ");
         String speciesStr = input.nextLine();
         while(Arrays.binarySearch(acceptable, speciesStr) < 0){
             System.out.print("Invalid input. ");
