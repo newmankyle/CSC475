@@ -313,7 +313,8 @@ public class DataParser {
         int minLen = 99;
         for(int i = 0; i < rhythm.length; i++)
             minLen = Math.min(minLen, (byte)rhythm[i]);
-        return Math.min(4*minLen,(int)Math.pow(2,IntStream.range(0,rhythm.length-1).mapToDouble(i -> Math.log(rhythm[i])/Math.log(2)).average().getAsDouble()));
+        double avg = IntStream.range(0,rhythm.length-1).mapToDouble(i -> Math.log(rhythm[i])/Math.log(2)).average().getAsDouble();
+        return Math.min(4*minLen,(int)Math.pow(2,Math.round(avg)));
     }
     
     public static int getRealUnit(byte[] rhythm){

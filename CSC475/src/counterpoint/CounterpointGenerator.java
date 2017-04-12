@@ -59,7 +59,7 @@ public class CounterpointGenerator {
         byte[] rhythmIn = new byte[inputNotes.length];
         for(int i = 0; i < inputNotes.length; i++)
             rhythmIn[i] = inputNotes[i][1];
-        unit = DataParser.getUnit(rhythmIn);
+        unit = Math.max(DataParser.getUnit(rhythmIn),4);
         if(species <= 1)        // first species = identical rhythm to input. treat anything less than 1 as first as well
             return rhythmIn;
         else if(species < 4){   // second species = divide by two, third species = divide by four
@@ -98,7 +98,7 @@ public class CounterpointGenerator {
         }
         else{                   // fifth species: free counterpoint. treat anything > 5 as free as well
             MarkovChain rhythm = DataParser.rhythmModel(below?"bass":"soprano");
-            unit = DataParser.getUnit(rhythmIn);
+            unit = Math.min(unit, DataParser.getRealUnit(rhythmIn));
             int total = onsets[onsets.length-1]+inputNotes[inputNotes.length-1][1];
             // if the total length isn't divisible by our unit, assume there's a pickup
             int pickup = unit-total%unit;
@@ -125,7 +125,19 @@ public class CounterpointGenerator {
                 conditions[units+before+i][0] = -1;
                 conditions[units+before+i][1] = (byte)i;
             }
-            List<MarkovChain> constraints = rhythm.induceConstraints(units+1, conditions);
+            // binary conditions to prevent the two most boring choices
+            byte[][] binaries = new byte[2*units-2][3];
+            for(int i = 0; i < units-1; i++){
+                // no onsets to no onsets
+                binaries[2*i][0] = (byte)(i+1);
+                binaries[2*i][1] = 0;
+                binaries[2*i][2] = 0;
+                // and on beat only to no onsets
+                binaries[2*i+1][0] = (byte)(i+1);
+                binaries[2*i+1][1] = 8;
+                binaries[2*i+1][2] = 0;
+            }
+            List<MarkovChain> constraints = rhythm.induceConstraints(units+1, conditions, binaries);
             // so now we make a compressed rhythmic pattern
             byte[] pattern = MarkovChain.getSeqFromConstraints(constraints);
             // and we have to uncompress it
@@ -478,13 +490,6 @@ public class CounterpointGenerator {
         if(inputMelody.equals("test")){
             testInit();
         }else{
-            System.out.print("is this major or minor? ");
-            String scale = input.nextLine();
-            while(!(scale.equals("major") || scale.equals("minor"))){
-                System.out.print("sorry, I need major/minor: ");
-                scale = input.nextLine();
-            }
-                
             System.out.print("should the counterpoint be above or below your melody? ");
             String voice = input.nextLine();       
             while(!(voice.equals("above") || voice.equals("below"))){
@@ -496,7 +501,7 @@ public class CounterpointGenerator {
             }else{
                 voice = "bass";
             }
-            globalInit(inputMelody, scale, voice);
+            globalInit(inputMelody, voice);
         }
         System.out.print("what species (1-4)? ");
         String speciesStr = input.nextLine();
