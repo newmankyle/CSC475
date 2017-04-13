@@ -305,7 +305,7 @@ public class DataParser {
         int[] ret = new int[lengths.length];
         ret[0] = 0;
         for(int i = 1; i < ret.length; i++)
-            ret[i] = ret[i-1]+lengths[i];
+            ret[i] = ret[i-1]+lengths[i-1];
         return ret;
     }
     

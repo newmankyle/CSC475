@@ -161,6 +161,54 @@ public class CounterpointGenerator {
         }
     }
     
+    public static byte[][] binaryPitchConstraints(byte[] rhythm){
+        byte[][][] constraintsPerStep = new byte[rhythm.length][0][0];
+        int[] outputOnsets = DataParser.onsets(rhythm);
+        // starting this off by removing all parallel fifths and parallel octaves
+        for(int i = 1; i < onsets.length; i++){
+            int ind = Arrays.binarySearch(outputOnsets, onsets[i]);
+            if(ind > 0){
+                // get the current melody note and the one before it
+                byte inputNoteBefore = inputNotes[i-1][0];
+                byte inputNoteAt = inputNotes[i][0];
+                // relative pitch class of the note before
+                int check = (inputNoteBefore-inputKey[0])%12;
+                int[] needsConstraint = new int[choices.length];
+                Arrays.fill(needsConstraint, 0);
+                for(int j = 0; j < choices.length; j++){
+                    byte choice = choices[j];
+                    int intervalAt = (below?(check-choice):(choice-check))%12;
+                    if(intervalAt < 0)
+                        intervalAt += 12;
+                    if(intervalAt == 0 || intervalAt == 7){
+                        int indOfParallel = Arrays.binarySearch(choices, (byte)(choice+inputNoteAt-inputNoteBefore));
+                        if(indOfParallel >= 0)
+                            needsConstraint[j]++;
+                    }
+                }
+                byte[][] constraintsForStep = new byte[Arrays.stream(needsConstraint).sum()][2];
+                for(int j = 0, k = 0; j < choices.length; j++){
+                    if(needsConstraint[j] > 0){
+                        constraintsForStep[k][0] = choices[j];
+                        constraintsForStep[k][1] = (byte)(choices[j]+inputNoteAt-inputNoteBefore);
+                        k++;
+                    }
+                }
+                constraintsPerStep[ind] = constraintsForStep;
+            }
+        }
+        int totalConstraints = Arrays.stream(constraintsPerStep).mapToInt(arr -> arr.length).sum();
+        byte[][] ret = new byte[totalConstraints][3];
+        for(int i = 0, count = 0; i < rhythm.length; i++){
+            for(int j = 0; j < constraintsPerStep[i].length; j++, count++){
+                ret[count][0] = (byte)i;
+                ret[count][1] = constraintsPerStep[i][j][0];
+                ret[count][2] = constraintsPerStep[i][j][1];
+            }
+        }
+        return constraintsPerStep[0];
+    }
+    
     public static double[] calculateNoteProbabilities(double[] probabilityArray, double[] harmProbs){
         double harmSum = Arrays.stream(harmProbs).sum();
         Arrays.setAll(probabilityArray, k -> probabilityArray[k]/harmSum*harmProbs[k]);
@@ -203,7 +251,7 @@ public class CounterpointGenerator {
         
     }
     
-    public static void secondGenerator(int testNum, int species) throws FileNotFoundException{
+    public static void secondGenerator(int testNum, int species, boolean tryConsts) throws FileNotFoundException{
         byte[] rhythm = createRhythm(species);
         byte[][] outputNotes = new byte[rhythm.length][2];
         int noteNum = outputNotes.length;
@@ -220,7 +268,10 @@ public class CounterpointGenerator {
             stupid[i][1] = Byte.MAX_VALUE;
         }
         
-        constraint = melodyModel.induceConstraints(noteNum+1,stupid);
+        if(tryConsts)
+            constraint = melodyModel.induceConstraints(noteNum+1,stupid,binaryPitchConstraints(rhythm));
+        else
+            constraint = melodyModel.induceConstraints(noteNum+1,stupid);
         //Generate sample counterpoints using the markov chain and vmm.
         int root = inputKey[0];
         double avg = IntStream.range(0, inputNotes.length).mapToDouble(i -> (double)inputNotes[i][0]).average().getAsDouble();
@@ -437,6 +488,7 @@ public class CounterpointGenerator {
         /*****************************************
         * parses and initializes a test melody.
         */
+        kd = new KeyDetector();
         inputNotes = parseNotesAsBytes(inputMelody);
         inputKey = kd.detectKey(inputNotes);
         tonality = inputKey[1]==0?"major":"minor";
@@ -476,8 +528,14 @@ public class CounterpointGenerator {
         choices = Arrays.copyOf(melodyModel.getLabels(), melodyModel.dim()-1);
     }
     
+    public static void publicTest() throws FileNotFoundException{
+        globalInit("68:8 70:8 73:8 75:8 77:8 75:8 70:8 73:8 78:8 77:8 72:8 75:8 73:8 80:8 78:8 68:8 67:8 68:8 77:8 75:8 73:16", "bass");
+        species = 1;
+        byte[] rhythm = createRhythm(1);
+        binaryPitchConstraints(rhythm);
+    }
+    
     public static void main(String[] args) throws FileNotFoundException{
-        kd = new KeyDetector();
         String[] acceptable = {"1", "2", "3", "4", "5"};
         Scanner input = new Scanner(System.in);
         System.out.print("please input a melody or 'test': ");
@@ -504,10 +562,17 @@ public class CounterpointGenerator {
             System.out.print("Invalid input. ");
             speciesStr = input.nextLine();
         }
+        System.out.print("Do you want to try binary pitch constraints (y/n)?");
+        String tryConsts = input.nextLine();
+        while(!(tryConsts.charAt(0) == 'y' || tryConsts.charAt(0) == 'n')){
+            System.out.print("Invalid input. ");
+            tryConsts = input.nextLine();
+        }
         //initialGenerator(10, noteNum);
         //System.out.println();
         
-        secondGenerator(10, Integer.parseInt(speciesStr));
+        System.out.println(tryConsts.charAt(0)+", "+(tryConsts.charAt(0)=='y'));
+        secondGenerator(10, Integer.parseInt(speciesStr), tryConsts.charAt(0)=='y');
         System.out.println();
         
         
