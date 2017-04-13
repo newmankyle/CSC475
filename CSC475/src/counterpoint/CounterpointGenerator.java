@@ -28,7 +28,6 @@ public class CounterpointGenerator {
     
     static String tonality; // major/minor
     static boolean below;
-    static int species;
     
     static byte[][] inputNotes; // user inputted notes
     static int[] onsets; // onsets for the notes listed above
@@ -206,7 +205,7 @@ public class CounterpointGenerator {
                 ret[count][2] = constraintsPerStep[i][j][1];
             }
         }
-        return constraintsPerStep[0];
+        return ret;
     }
     
     public static double[] calculateNoteProbabilities(double[] probabilityArray, double[] harmProbs){
@@ -229,7 +228,7 @@ public class CounterpointGenerator {
         System.out.println("evaluation " + ": " + score);        
     }
     
-    public static void initialGenerator(int testNum, int noteNum, byte[][] inputNotes){
+    public static void initialGenerator(int testNum, int noteNum){
         byte root = 0;
         //Generate 10 Test patterns using only the markov chain
         for(int i = 0; i < testNum; i++){
@@ -293,7 +292,7 @@ public class CounterpointGenerator {
                 while((inputNotes[0][0]-actualChoices[j])*(below?1:-1) < 7)
                     actualChoices[j] -= 12*(below?1:-1);
             }
-            System.out.println("actualChoices2 " + i + ": " + Arrays.toString(actualChoices));
+            //System.out.println("actualChoices2 " + i + ": " + Arrays.toString(actualChoices));
             
             byte offset = (byte)root;
             noteSequence[0] = 127; // start sequence with "!"
@@ -430,8 +429,8 @@ public class CounterpointGenerator {
         }
         System.out.println(pattern1 + "\n" + pattern2);
         
-        Pattern p1 = new Pattern(pattern1).setVoice(0).setInstrument("Violin").setTempo(160);
-        Pattern p2 = new Pattern(pattern2).setVoice(1).setInstrument("Piano").setTempo(160);
+        Pattern p1 = new Pattern(pattern1).setVoice(0).setInstrument("Violin").setTempo(80);
+        Pattern p2 = new Pattern(pattern2).setVoice(1).setInstrument("Piano").setTempo(80);
         Player player;
         //player.play(p1, p2);
         
@@ -528,11 +527,36 @@ public class CounterpointGenerator {
         choices = Arrays.copyOf(melodyModel.getLabels(), melodyModel.dim()-1);
     }
     
-    public static void publicTest() throws FileNotFoundException{
+    public static void binaryTest() throws FileNotFoundException{
         globalInit("68:8 70:8 73:8 75:8 77:8 75:8 70:8 73:8 78:8 77:8 72:8 75:8 73:8 80:8 78:8 68:8 67:8 68:8 77:8 75:8 73:16", "bass");
-        species = 1;
         byte[] rhythm = createRhythm(1);
-        binaryPitchConstraints(rhythm);
+        int noteNum = rhythm.length;
+        
+        // the "stupid" constraints- don't use the ending state until the end of the piece
+        byte[][] stupid = new byte[noteNum][2];
+        for(int i = 0; i < noteNum; i++){
+            stupid[i][0] = (byte)((i+1)*(i<(noteNum-1)?-1:1));
+            stupid[i][1] = Byte.MAX_VALUE;
+        }
+        byte[][] binary = binaryPitchConstraints(rhythm);
+        for(int i = 0; i < binary.length; i++)
+            System.out.println(Arrays.toString(binary[i]));
+        
+        System.out.println(Arrays.toString(choices));
+        for(int i = 0; i < 2; i++){
+            if(i == 0)
+                constraint = melodyModel.induceConstraints(noteNum+1,stupid);
+            else
+                constraint = melodyModel.induceConstraints(noteNum+1,stupid,binary);
+            System.out.println(Arrays.toString(constraint.get(0).transitions[choices.length]));
+            System.out.println();
+            for(int j = 1; j < noteNum+1; j++){
+                MarkovChain mc = constraint.get(j);
+                for(int k = 0; k < choices.length; k++)
+                    System.out.println(Arrays.toString(mc.transitions[k]));
+                System.out.println();
+            }
+        }
     }
     
     public static void main(String[] args) throws FileNotFoundException{
@@ -553,7 +577,7 @@ public class CounterpointGenerator {
         }else{
             voice = "bass";
             if(inputMelody.equals("test"))
-                inputMelody = "68:8 70:8 73:8 75:8 77:8 75:8 70:8 73:8 78:8 77:8 72:8 75:8 73:8 80:8 78:8 68:8 67:8 68:8 77:8 75:8 73:16";
+                inputMelody = "68:4 70:4 73:4 75:4 77:4 75:4 70:4 73:4 78:4 77:4 72:4 75:4 73:4 80:4 78:4 68:4 67:4 68:4 77:4 75:4 73:16";
         }
         globalInit(inputMelody, voice);
         System.out.print("what species (1-5)? ");
@@ -562,19 +586,18 @@ public class CounterpointGenerator {
             System.out.print("Invalid input. ");
             speciesStr = input.nextLine();
         }
-        System.out.print("Do you want to try binary pitch constraints (y/n)?");
+        System.out.print("Do you want to try binary pitch constraints (y/n)? ");
         String tryConsts = input.nextLine();
         while(!(tryConsts.charAt(0) == 'y' || tryConsts.charAt(0) == 'n')){
             System.out.print("Invalid input. ");
             tryConsts = input.nextLine();
         }
-        //initialGenerator(10, noteNum);
-        //System.out.println();
+        /*initialGenerator(10, noteNum);
+        System.out.println();
+        */
         
-        System.out.println(tryConsts.charAt(0)+", "+(tryConsts.charAt(0)=='y'));
         secondGenerator(10, Integer.parseInt(speciesStr), tryConsts.charAt(0)=='y');
         System.out.println();
-        
         
     }
 }
