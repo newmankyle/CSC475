@@ -5,7 +5,6 @@
  */
 package counterpoint;
 
-import static counterpoint.DataParser.parseNoteStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -108,11 +107,11 @@ public class CounterpointGenerator {
             int without = (int)Math.pow(2,pickup*4/unit-1);
             // this isn't totally functional since many pieces leave out the length of the pickup at the end
             pickup = pickup==unit?0:pickup;
-            byte[][] conditions = new byte[(total+pickup)/unit+before+without][2];
+            int[][] conditions = new int[(total+pickup)/unit+before+without][2];
             int units = conditions.length-before-without;
             // need to prevent the ending symbol from being chosen until... the end
             for(int i = 0; i < units; i++){
-                conditions[i][0] = (byte)((i+1)*(i<(units-1)?-1:1));
+                conditions[i][0] = (i+1)*(i<(units-1)?-1:1);
                 conditions[i][1] = Byte.MAX_VALUE;
             }
             // we need the first onset to be exactly in time with the original
@@ -127,14 +126,14 @@ public class CounterpointGenerator {
                 conditions[units+before+i][1] = (byte)i;
             }
             // binary conditions to prevent the two most boring choices
-            byte[][] binaries = new byte[2*units-2][3];
+            int[][] binaries = new int[2*units-2][3];
             for(int i = 0; i < units-1; i++){
                 // no onsets to no onsets
-                binaries[2*i][0] = (byte)(i+1);
+                binaries[2*i][0] = i+1;
                 binaries[2*i][1] = 0;
                 binaries[2*i][2] = 0;
                 // and on beat only to no onsets
-                binaries[2*i+1][0] = (byte)(i+1);
+                binaries[2*i+1][0] = i+1;
                 binaries[2*i+1][1] = 8;
                 binaries[2*i+1][2] = 0;
             }
@@ -162,8 +161,8 @@ public class CounterpointGenerator {
         }
     }
     
-    public static byte[][] binaryPitchConstraints(byte[] rhythm){
-        byte[][][] constraintsPerStep = new byte[rhythm.length][0][0];
+    public static int[][] binaryPitchConstraints(byte[] rhythm){
+        int[][][] constraintsPerStep = new int[rhythm.length][0][0];
         int[] outputOnsets = DataParser.onsets(rhythm);
         // starting this off by removing all parallel fifths and parallel octaves
         for(int i = 1; i < onsets.length; i++){
@@ -187,11 +186,11 @@ public class CounterpointGenerator {
                             needsConstraint[j]++;
                     }
                 }
-                byte[][] constraintsForStep = new byte[Arrays.stream(needsConstraint).sum()][2];
+                int[][] constraintsForStep = new int[Arrays.stream(needsConstraint).sum()][2];
                 for(int j = 0, k = 0; j < choices.length; j++){
                     if(needsConstraint[j] > 0){
                         constraintsForStep[k][0] = choices[j];
-                        constraintsForStep[k][1] = (byte)(choices[j]+inputNoteAt-inputNoteBefore);
+                        constraintsForStep[k][1] = choices[j]+inputNoteAt-inputNoteBefore;
                         k++;
                     }
                 }
@@ -199,10 +198,10 @@ public class CounterpointGenerator {
             }
         }
         int totalConstraints = Arrays.stream(constraintsPerStep).mapToInt(arr -> arr.length).sum();
-        byte[][] ret = new byte[totalConstraints][3];
+        int[][] ret = new int[totalConstraints][3];
         for(int i = 0, count = 0; i < rhythm.length; i++){
             for(int j = 0; j < constraintsPerStep[i].length; j++, count++){
-                ret[count][0] = (byte)i;
+                ret[count][0] = i;
                 ret[count][1] = constraintsPerStep[i][j][0];
                 ret[count][2] = constraintsPerStep[i][j][1];
             }
@@ -263,9 +262,9 @@ public class CounterpointGenerator {
         //System.out.println(Arrays.toString(rhythm));
         
         // the "stupid" constraints- don't use the ending state until the end of the piece
-        byte[][] stupid = new byte[noteNum][2];
+        int[][] stupid = new int[noteNum][2];
         for(int i = 0; i < noteNum; i++){
-            stupid[i][0] = (byte)((i+1)*(i<(noteNum-1)?-1:1));
+            stupid[i][0] = (i+1)*(i<(noteNum-1)?-1:1);
             stupid[i][1] = Byte.MAX_VALUE;
         }
         System.out.println(stupid.length);
@@ -539,12 +538,12 @@ public class CounterpointGenerator {
         int noteNum = rhythm.length;
         
         // the "stupid" constraints- don't use the ending state until the end of the piece
-        byte[][] stupid = new byte[noteNum][2];
+        int[][] stupid = new int[noteNum][2];
         for(int i = 0; i < noteNum; i++){
-            stupid[i][0] = (byte)((i+1)*(i<(noteNum-1)?-1:1));
+            stupid[i][0] = (i+1)*(i<(noteNum-1)?-1:1);
             stupid[i][1] = Byte.MAX_VALUE;
         }
-        byte[][] binary = binaryPitchConstraints(rhythm);
+        int[][] binary = binaryPitchConstraints(rhythm);
         for(int i = 0; i < binary.length; i++)
             System.out.println(Arrays.toString(binary[i]));
         
@@ -614,7 +613,7 @@ public class CounterpointGenerator {
     
     public static void main(String[] args) throws FileNotFoundException{
         
-        //freeCounterpointTest();
+        freeCounterpointTest();
                 
         String[] acceptable = {"1", "2", "3", "4", "5"};
         Scanner input = new Scanner(System.in);

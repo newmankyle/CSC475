@@ -102,6 +102,74 @@ public class MarkovChain {
     * stating that the chain cannot go from j to k between states i and i+1.
     * @return a list of Markov chains representing the constrained Markov process.
     */
+    public List<MarkovChain> induceConstraints(int length, int[][] unary, int[][] binary){
+        int dim = labels.length;
+        boolean[][] allowed = new boolean[length][dim];
+        double[][][] modMatrices = new double[length][dim][dim];
+        for(int i = 0; i < length; i++){
+            Arrays.fill(allowed[i], true);
+            for(int j = 0; j < dim; j++)
+                modMatrices[i][j] = Arrays.copyOf(transitions[j], dim);
+        }
+        // processing the constraints
+        for(int i = 0; i < unary.length; i++){
+            if(unary[i][1] >= 128 || unary[i][1] < -128)
+                throw new IllegalArgumentException();
+            int ind = Arrays.binarySearch(labels, (byte)unary[i][1]);
+            int step = Math.max(unary[i][0], -1-unary[i][0]);
+            for(int j = 0; j < dim; j++)
+                if((unary[i][0]>=0 && ind!=j) || (unary[i][0]<0 && ind==j))
+                    allowed[step][j] = false;
+        }
+        for(int i = 0; i < binary.length; i++){
+            int step = binary[i][0];
+            if(binary[i][1] >= 128 || binary[i][1] < -128)
+                throw new IllegalArgumentException();
+            if(binary[i][1] >= 128 || binary[i][1] < -128)
+                throw new IllegalArgumentException();
+            int indF = Arrays.binarySearch(labels, (byte)binary[i][1]);
+            int indT = Arrays.binarySearch(labels, (byte)binary[i][2]);
+            modMatrices[step][indF][indT] = 0;
+        }
+        double[][] modRows = new double[length][dim];
+        // matrix extraction, arc consistency
+        for(int i = length-1; i >= 0; i--){
+            // set columns representing unwanted states to 0
+            for(int j = 0; j < dim; j++)
+                for(int k = 0; k < dim; k++)
+                    if(!allowed[i][k])
+                        modMatrices[i][j][k] = 0.0;
+            // arc consistency
+            for(int j = 0; j < dim; j++){
+                // taking sums for renormalization
+                if(i == length-1)
+                    modRows[i][j] = Arrays.stream(modMatrices[i][j]).sum();
+                else{
+                    modRows[i][j] = 0.0;
+                    for(int k = 0; k < dim; k++)
+                        modRows[i][j] += modRows[i+1][k]*modMatrices[i][j][k];
+                }
+                // remove states that have become dead ends
+                if(i > 0 && Arrays.stream(modMatrices[i][j]).sum() == 0.0)
+                    allowed[i-1][j] = false;
+            }
+        }
+        double[][][] finalMatrices = new double[length][dim][dim];
+        // renormalizing
+        for(int i = length-1; i >= 0; i--){
+            for(int j = 0; j < dim; j++){
+                for(int k = 0; k < dim; k++){
+                    if(modRows[i][j] != 0){
+                        finalMatrices[i][j][k] = modMatrices[i][j][k]/modRows[i][j];
+                        if(i < length-1)
+                            finalMatrices[i][j][k] *= modRows[i+1][k];
+                    }
+                }
+            }
+        }
+        return Arrays.stream(finalMatrices).map(ds -> new MarkovChain(labels,ds)).collect(Collectors.toList());
+    }
+    
     public List<MarkovChain> induceConstraints(byte length, byte[][] unary, byte[][] binary){
         int dim = labels.length;
         boolean[][] allowed = new boolean[length][dim];
@@ -178,6 +246,11 @@ public class MarkovChain {
             byte[][] binary = new byte[0][];
             return induceConstraints((byte)length, unary, binary);
         }
+    }
+    
+    public List<MarkovChain> induceConstraints(int length, int[][] unary){
+        int[][] binary = new int[0][];
+        return induceConstraints(length, unary, binary);
     }
     
     public List<MarkovChain> induceConstraints(int length, int[] points, byte[] vals){
