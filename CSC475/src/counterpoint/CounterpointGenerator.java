@@ -251,11 +251,11 @@ public class CounterpointGenerator {
         
     }
     
-    public static double secondGenerator(int testNum, int species, boolean tryConsts) throws FileNotFoundException{
+    public static double[] secondGenerator(int testNum, int species, boolean tryConsts) throws FileNotFoundException{
         byte[] rhythm = createRhythm(species);
         byte[][] outputNotes = new byte[rhythm.length][2];
         int noteNum = outputNotes.length;
-        double totalScore = 0.0;
+        double[] ret = new double[testNum];
         for(int i = 0; i < noteNum; i++)
             outputNotes[i][1] = rhythm[i];
         //System.out.println(Arrays.toString(onsets));
@@ -373,7 +373,7 @@ public class CounterpointGenerator {
 
             noteSequence[noteSequence.length-1] = 127; //adding the second !
             double score = harmonyModel.logEval(harmonySequence.substring(2), "! ")/(harmonySequence.length()-2);
-            totalScore += score;
+            ret[i] = score;
             //printStats(noteSequence, harmonySequence, Double.toString(score));
             
             if(score < bestScore){
@@ -386,7 +386,7 @@ public class CounterpointGenerator {
         
         noteSequence = best;
         //playCounterpoint(rhythm);
-        return totalScore;
+        return ret;
         
     }
     public static void convertRhythmsToChar(String[] durations, byte[] rhythm){
@@ -586,9 +586,10 @@ public class CounterpointGenerator {
     }
     
     public static void freeCounterpointTest() throws FileNotFoundException{
-        double runningScore = 0.0;
-        double count = 0.0;
-        File f = new File("data\\"+"soprano"+"MIDI.txt");
+        double runningAvg = 0.0;
+        double runningBest = 0.0;
+        int count = 0;
+        File f = new File("data\\"+"bass"+"MIDI.txt");
         Scanner sc = new Scanner(f,"ISO-8859-1");
         //sc.useDelimiter("\n");
         sc.useDelimiter(System.getProperty("line.separator"));
@@ -599,16 +600,20 @@ public class CounterpointGenerator {
             String l = sc.next();
             melody = l.substring(l.indexOf('!')+2, l.length()-2);
             System.out.println("|" + melody + "|");
-            String voice = "bass";
-            String species = "5";
+            String voice = "soprano";
+            String species = "1";
             String tryConsts = "y";
             //System.out.println("first");
             globalInit(melody, voice);
-            runningScore += secondGenerator(10, 5, true);
-            count += 1.0;
+            double[] results = secondGenerator(10, 1, true);
+            runningAvg += Arrays.stream(results).average().getAsDouble();
+            runningBest += Arrays.stream(results).min().getAsDouble();
+            count++;
             flush();
         }
-        System.out.println("runningScore: " + runningScore + "\ncount: " + count + "\navg: " + runningScore/count);
+        System.out.println("count: " + count
+                         + "\naverage of all counterpoints: "  + runningAvg/count
+                         + "\naverage of best counterpoints: " + runningBest/count);
     }
     
     public static void main(String[] args) throws FileNotFoundException{
@@ -650,7 +655,7 @@ public class CounterpointGenerator {
         /*initialGenerator(10, noteNum);
         System.out.println();
         */        
-        double placeholder = secondGenerator(10, Integer.parseInt(speciesStr), tryConsts.charAt(0)=='y');
+        double[] placeholder = secondGenerator(10, Integer.parseInt(speciesStr), tryConsts.charAt(0)=='y');
         System.out.println();
         
     }
